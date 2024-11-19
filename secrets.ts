@@ -28,5 +28,3 @@ export const Keys = envs.reduce((acc, key): Record<string, string> => {
   acc[key.alias] = hasEnvs[key.alias];
   return acc;
 }, {} as Record<string, string>);
-
-console.log(Keys);
