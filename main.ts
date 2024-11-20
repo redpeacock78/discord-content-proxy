@@ -31,16 +31,16 @@ app.post("/generate", async (c: Context) => {
       400
     );
   const data = JSON.stringify(json);
-  const digit: string = Crypto.genDigit(data, Keys.digit);
-  const encrypted: string = Base64Url.encode(Crypto.encrypt(data, Keys.crypto));
+  const digit: string = Crypto.genDigit(data, Keys.DIGIT);
+  const encrypted: string = Base64Url.encode(Crypto.encrypt(data, Keys.CRYPTO));
   return c.json({ digit, encrypted });
 });
 
 app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const digit: string = c.req.param("digit");
   const encrypted: string = c.req.param("encrypted");
-  const data: string = Crypto.decrypt(Base64Url.decode(encrypted), Keys.crypto);
-  if (Crypto.genDigit(data, Keys.digit) !== digit)
+  const data: string = Crypto.decrypt(Base64Url.decode(encrypted), Keys.CRYPTO);
+  if (Crypto.genDigit(data, Keys.DIGIT) !== digit)
     return c.json({ error: "Invalid digit" }, 400);
   const json: PostData = JSON.parse(data);
   if (json.expiredAt) {
@@ -58,7 +58,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       attachment_urls: [contentUrl],
     };
     const headersData = {
-      Authorization: Keys.discord,
+      Authorization: Keys.DISCORD,
     };
     const option = { json: postData, headers: headersData };
     const refreshData: { refreshed_urls: [{ refreshed: string }] } = await ky
@@ -73,20 +73,14 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         const contentLength = resp.headers.get("content-length");
         if (contentType) {
           c.header("Content-Type", contentType);
-          if (
+          const isMedia: boolean =
             contentType.startsWith("image/") ||
-            contentType.startsWith("video/")
-          ) {
-            c.header(
-              "Content-Disposition",
-              `inline; filename="${fileName}"; filename*=UTF-8''${fileName}`
-            );
-          } else {
-            c.header(
-              "Content-Disposition",
-              `attachment; filename="${fileName}"; filename*=UTF-8''${fileName}`
-            );
-          }
+            contentType.startsWith("video/");
+          const behavior: string = isMedia ? "inline" : "attachment";
+          c.header(
+            "Content-Disposition",
+            `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+          );
         }
         if (contentLength) c.header("Content-Length", contentLength);
         return c.body(resp.body);
