@@ -3,10 +3,11 @@ import UniEnv, { Result, Maybe, VersionError } from "npm:@redpeacock78/unienv";
 
 type KeyObj = typeof KEY_NAMES;
 type KeyType = keyof KeyObj;
+type GetResult = Result<Maybe<string>, VersionError | Error>;
 type EnvsType = {
   name: KeyObj[KeyType];
   alias: KeyType;
-  result: Result<Maybe<string>, VersionError>;
+  result: GetResult;
 };
 
 const handleEnvError = (missingEnvs: string[]): never => {
