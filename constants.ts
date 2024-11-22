@@ -6,4 +6,4 @@ export const KEY_NAMES = {
   DIGIT: "DIGIT_KEY",
   CRYPTO: "CRYPTO_KEY",
   DISCORD: "DISCORD_TOKEN",
-} as const;
+} as const satisfies Record<string, string>;
