@@ -1,48 +1,53 @@
+import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
-import { Context, Hono } from "npm:hono";
-import { Crypto } from "./libs.ts";
+import { Context, Env, Hono } from "npm:hono";
+import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Base64Url } from "./utils.ts";
-import { BASE_URL, API_URL } from "./constants.ts";
+import { Crypto, fJSON } from "./libs.ts";
+import { BASE_URL, API_URL, JSON_SCHEMA } from "./constants.ts";
 
-type PostData = {
-  channelID: string;
-  messageId: string;
-  contentName: string;
-  originalFileName: string;
-  expiredAt?: string;
+type Schema<T extends z.ZodType> = {
+  in: {
+    json: z.input<T>;
+  };
+  out: {
+    json: z.infer<T>;
+  };
 };
 
 const app = new Hono();
 
-app.post("/generate", async (c: Context) => {
-  const json: PostData = await c.req.json();
-  if (
-    !json.channelID ||
-    !json.messageId ||
-    !json.contentName ||
-    !json.originalFileName
-  )
-    return c.json(
-      {
-        error:
-          "channelID, messageId, contentName, originalFileName is required",
-      },
-      400
+app.post(
+  "/generate",
+  zValidator("json", JSON_SCHEMA, (value, c: Context<Env, string>) => {
+    const parsed = JSON_SCHEMA.safeParse(value.data);
+    if (!parsed.success) return c.json({ error: "Invalid JSON" }, 400);
+    return value.data;
+  }),
+  (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
+    const json = c.req.valid("json");
+    const data = fJSON.stringify(json);
+    const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
+    const encrypted: string = Base64Url.encode(
+      Crypto.encrypt(data, Keys.CRYPTO_KEY)
     );
-  const data = JSON.stringify(json);
-  const digit: string = Crypto.genDigit(data, Keys.DIGIT);
-  const encrypted: string = Base64Url.encode(Crypto.encrypt(data, Keys.CRYPTO));
-  return c.json({ digit, encrypted });
-});
+    return c.json({ digit, encrypted });
+  }
+);
 
 app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const digit: string = c.req.param("digit");
   const encrypted: string = c.req.param("encrypted");
-  const data: string = Crypto.decrypt(Base64Url.decode(encrypted), Keys.CRYPTO);
-  if (Crypto.genDigit(data, Keys.DIGIT) !== digit)
+  const data: string = Crypto.decrypt(
+    Base64Url.decode(encrypted),
+    Keys.CRYPTO_KEY
+  );
+  if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
     return c.json({ error: "Invalid digit" }, 400);
-  const json: PostData = JSON.parse(data);
+  const json: z.infer<typeof JSON_SCHEMA> = JSON.parse(data);
+  const parsed = JSON_SCHEMA.safeParse(json);
+  if (!parsed.success) return c.json({ error: "Invalid JSON" }, 400);
   if (json.expiredAt) {
     if (isNaN(Number(json.expiredAt)))
       return c.json({ error: "Invalid expiredAt format" }, 400);
@@ -53,12 +58,12 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const contentUrl: URL = BASE_URL;
   const refreshApi: URL = API_URL;
   try {
-    contentUrl.pathname = `/attachments/${json.channelID}/${json.messageId}/${json.contentName}`;
+    contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
     const postData = {
       attachment_urls: [contentUrl],
     };
     const headersData = {
-      Authorization: Keys.DISCORD,
+      Authorization: Keys.DISCORD_TOKEN,
     };
     const option = { json: postData, headers: headersData };
     const refreshData: { refreshed_urls: [{ refreshed: string }] } = await ky
