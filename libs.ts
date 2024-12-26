@@ -1,7 +1,6 @@
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import fastJson from "npm:fast-json-stringify";
-import { JSON_SCHEMA_OBJ } from "./constants.ts";
 
 export const Crypto = {
   encrypt: (data: string, key: string) => {
@@ -14,6 +13,8 @@ export const Crypto = {
     crypto.HmacSHA256(data, key).toString(),
 };
 export const fJSON = {
-  stringify: <TDoc extends object = object>(doc: TDoc): string =>
-    fastJson(JSON_SCHEMA_OBJ)(doc),
+  stringify: <TDoc extends object = object>(
+    schema: fastJson.AnySchema,
+    doc: TDoc
+  ): string => fastJson(schema)(doc),
 };
