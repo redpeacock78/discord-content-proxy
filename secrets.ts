@@ -1,44 +1,22 @@
 import { KEY_NAMES } from "./constants.ts";
-import UniEnv, { Result, Maybe, SomeError } from "npm:@redpeacock78/unienv";
+import UniEnv from "npm:@redpeacock78/unienv";
 
-type KeyObj = typeof KEY_NAMES;
-type KeyType = keyof KeyObj;
-type EnvsType = Readonly<{
-  name: KeyObj[KeyType];
-  alias: KeyType;
-  result: Result<Maybe<string>, SomeError>;
-}>;
-type EnvsNameType = EnvsType["name"];
-type KeysObj = Readonly<{
-  [key in KeyType]: string;
-}>;
-
-const handleEnvError = (missingEnvsNames: readonly string[]): never => {
-  console.error(`Missing env variables: ${missingEnvsNames.join(", ")}`);
-  console.error(
-    `Please ensure these variables are set in your .env file or environment configuration.`
-  );
-  throw new Error(`Env check failed: ${missingEnvsNames.join(", ")}`);
-};
-
-const envs = (Object.keys(KEY_NAMES) as Array<KeyType>).map(
-  (key: KeyType) =>
-    ({
-      name: KEY_NAMES[key],
-      alias: key,
-      result: UniEnv.get(KEY_NAMES[key]),
-    } as const satisfies EnvsType)
-);
-const hasEnvs = {} as Record<KeyType, string>;
-const missingEnvsNames = envs.flatMap(
-  (env: EnvsType): readonly EnvsNameType[] | [] => {
-    if (env.result.isNg() || !env.result.value)
-      return [env.name] as const satisfies readonly EnvsNameType[];
-    hasEnvs[env.alias] = env.result.value;
-    return [];
+const envs = KEY_NAMES.reduce(
+  (acc, i) => {
+    const env = UniEnv.get(i);
+    env.isNg()
+      ? acc.errors.push(env.error.message)
+      : !env.value
+      ? acc.errors.push(`${i} is not set.`)
+      : (acc.values[i] = env.value);
+    return acc;
+  },
+  {
+    values: {} as Record<(typeof KEY_NAMES)[number], string>,
+    errors: [] as string[],
   }
-) as readonly EnvsNameType[];
+);
 
-if (missingEnvsNames.length > 0) handleEnvError(missingEnvsNames);
+if (envs.errors.length > 0) throw new Error(envs.errors.join("\n"));
 
-export const Keys = Object.freeze(hasEnvs) as KeysObj;
+export const Keys = Object.freeze(envs.values);
