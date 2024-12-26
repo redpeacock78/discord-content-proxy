@@ -5,7 +5,12 @@ import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Base64Url } from "./utils.ts";
 import { Crypto, fJSON } from "./libs.ts";
-import { BASE_URL, API_URL, JSON_SCHEMA } from "./constants.ts";
+import {
+  API_URL,
+  BASE_URL,
+  JSON_SCHEMA,
+  JSON_SCHEMA_OBJ,
+} from "./constants.ts";
 
 type Schema<T extends z.ZodType> = {
   in: {
@@ -29,7 +34,7 @@ app.post(
   }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
     const json = c.req.valid("json");
-    const data = fJSON.stringify(json);
+    const data = fJSON.stringify(JSON_SCHEMA_OBJ, json);
     const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
     const encrypted: string = Base64Url.encode(
       Crypto.encrypt(data, Keys.CRYPTO_KEY)
