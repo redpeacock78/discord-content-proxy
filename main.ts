@@ -21,9 +21,11 @@ const app = new Hono();
 app.post(
   "/generate",
   zValidator("json", JSON_SCHEMA, (value, c: Context<Env, string>) => {
-    const parsed = JSON_SCHEMA.safeParse(value.data);
-    if (!parsed.success) return c.json({ error: "Invalid JSON" }, 400);
-    return value.data;
+    const data: z.infer<typeof JSON_SCHEMA> | null = value.data;
+    if (!data) return c.json({ error: "JSON is missing" }, 400);
+    if (!JSON_SCHEMA.safeParse(data).success)
+      return c.json({ error: "Invalid JSON" }, 400);
+    return data;
   }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
     const json = c.req.valid("json");
@@ -46,8 +48,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
     return c.json({ error: "Invalid digit" }, 400);
   const json: z.infer<typeof JSON_SCHEMA> = JSON.parse(data);
-  const parsed = JSON_SCHEMA.safeParse(json);
-  if (!parsed.success) return c.json({ error: "Invalid JSON" }, 400);
+  if (!JSON_SCHEMA.safeParse(json).success)
+    return c.json({ error: "Invalid JSON" }, 400);
   if (json.expiredAt) {
     if (isNaN(Number(json.expiredAt)))
       return c.json({ error: "Invalid expiredAt format" }, 400);
