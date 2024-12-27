@@ -30,6 +30,10 @@ app.post(
     if (!data) return c.json({ error: "JSON is missing" }, 400);
     if (!JSON_SCHEMA.safeParse(data).success)
       return c.json({ error: "Invalid JSON" }, 400);
+    if (data.expiredAt) {
+      if (isNaN(Number(data.expiredAt)))
+        return c.json({ error: "Invalid expiredAt format" }, 400);
+    }
     return data;
   }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
