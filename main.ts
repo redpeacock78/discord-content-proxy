@@ -44,9 +44,7 @@ app.post(
       properties: (Object.keys(JSON_SCHEMA.shape) as Array<SchemaKeys>).reduce(
         (acc: BuildSchemaProps, key: SchemaKeys): BuildSchemaProps => ({
           ...acc,
-          [key]: {
-            type: typeof JSON_SCHEMA.shape[key].constructor.name,
-          },
+          [key]: fJSON.deriveJsonSchema(JSON_SCHEMA.shape[key]),
         }),
         {} as BuildSchemaProps
       ),
