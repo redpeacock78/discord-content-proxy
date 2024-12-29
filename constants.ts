@@ -9,6 +9,6 @@ export const JSON_SCHEMA = z.object({
   channelId: z.string(),
   messageId: z.string(),
   contentName: z.string(),
-  originalFileName: z.string(),
+  originalFileName: z.string().optional(),
   expiredAt: z.string().optional(),
 });
