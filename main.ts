@@ -62,25 +62,26 @@ app.post(
 app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const digit: string = c.req.param("digit");
   const encrypted: string = c.req.param("encrypted");
-  const data: string = Crypto.decrypt(
-    Base64Url.decode(encrypted),
-    Keys.CRYPTO_KEY
-  );
-  if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
-    return c.json({ error: "Invalid digit" }, 400);
-  const json: z.infer<typeof JSON_SCHEMA> = JSON.parse(data);
-  if (!JSON_SCHEMA.safeParse(json).success)
-    return c.json({ error: "Invalid JSON" }, 400);
-  if (json.expiredAt) {
-    if (isNaN(Number(json.expiredAt)))
-      return c.json({ error: "Invalid expiredAt format" }, 400);
-    const currentTime = Date.now();
-    const expiredAt = new Date(json.expiredAt).getTime();
-    if (currentTime > expiredAt) return c.json({ error: "Token expired" }, 400);
-  }
-  const contentUrl: URL = BASE_URL;
-  const refreshApi: URL = API_URL;
   try {
+    const data: string = Crypto.decrypt(
+      Base64Url.decode(encrypted),
+      Keys.CRYPTO_KEY
+    );
+    if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
+      return c.json({ error: "Invalid digit" }, 400);
+    const json: z.infer<typeof JSON_SCHEMA> = JSON.parse(data);
+    if (!JSON_SCHEMA.safeParse(json).success)
+      return c.json({ error: "Invalid JSON" }, 400);
+    if (json.expiredAt) {
+      if (isNaN(Number(json.expiredAt)))
+        return c.json({ error: "Invalid expiredAt format" }, 400);
+      const currentTime = Date.now();
+      const expiredAt = new Date(json.expiredAt).getTime();
+      if (currentTime > expiredAt)
+        return c.json({ error: "Token expired" }, 400);
+    }
+    const contentUrl: URL = BASE_URL;
+    const refreshApi: URL = API_URL;
     contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
     const postData = {
       attachment_urls: [contentUrl],
@@ -96,27 +97,35 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     return await ky
       .get(refreshedUrl)
       .then((resp: KyResponse): Response => {
-        const fileName = encodeURIComponent(json.originalFileName);
         const contentType = resp.headers.get("content-type");
         const contentLength = resp.headers.get("content-length");
+        if (contentLength) c.header("Content-Length", contentLength);
         if (contentType) {
           c.header("Content-Type", contentType);
           const isMedia: boolean =
             contentType.startsWith("image/") ||
             contentType.startsWith("video/");
           const behavior: string = isMedia ? "inline" : "attachment";
-          c.header(
-            "Content-Disposition",
-            `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
-          );
+          if (json.originalFileName) {
+            const fileName = encodeURIComponent(json.originalFileName);
+            c.header(
+              "Content-Disposition",
+              `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+            );
+          }
         }
-        if (contentLength) c.header("Content-Length", contentLength);
         c.header("Access-Control-Allow-Origin", "*");
         return c.body(resp.body);
       })
-      .catch((e) => c.json({ error: e.response.reason }, e.response.status));
+      .catch((e) =>
+        e.response?.reason
+          ? c.json({ error: e.response.reason }, e.response.status)
+          : c.json({ error: "Internal Server Error" }, 500)
+      );
   } catch (e) {
-    return c.json({ error: e.response.reason }, e.response.status);
+    return e.response?.reason
+      ? c.json({ error: e.response.reason }, e.response.status)
+      : c.json({ error: "Internal Server Error" }, 500);
   }
 });
 
