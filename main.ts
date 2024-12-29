@@ -60,6 +60,8 @@ app.post(
 );
 
 app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
+  const refreshApi: URL = API_URL;
+  const contentUrl: URL = BASE_URL;
   const digit: string = c.req.param("digit");
   const encrypted: string = c.req.param("encrypted");
   try {
@@ -80,8 +82,6 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       if (currentTime > expiredAt)
         return c.json({ error: "Token expired" }, 400);
     }
-    const contentUrl: URL = BASE_URL;
-    const refreshApi: URL = API_URL;
     contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
     const postData = {
       attachment_urls: [contentUrl],
