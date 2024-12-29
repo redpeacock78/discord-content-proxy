@@ -102,11 +102,11 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         if (contentLength) c.header("Content-Length", contentLength);
         if (contentType) {
           c.header("Content-Type", contentType);
-          const isMedia: boolean =
-            contentType.startsWith("image/") ||
-            contentType.startsWith("video/");
-          const behavior: string = isMedia ? "inline" : "attachment";
           if (json.originalFileName) {
+            const isMedia: boolean =
+              contentType.startsWith("image/") ||
+              contentType.startsWith("video/");
+            const behavior: string = isMedia ? "inline" : "attachment";
             const fileName = encodeURIComponent(json.originalFileName);
             c.header(
               "Content-Disposition",
