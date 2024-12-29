@@ -111,6 +111,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           );
         }
         if (contentLength) c.header("Content-Length", contentLength);
+        c.header("Access-Control-Allow-Origin", "*");
         return c.body(resp.body);
       })
       .catch((e) => c.json({ error: e.response.reason }, e.response.status));
