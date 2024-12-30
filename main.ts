@@ -102,17 +102,17 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         if (contentLength) c.header("Content-Length", contentLength);
         if (contentType) {
           c.header("Content-Type", contentType);
-          if (json.originalFileName) {
-            const isMedia: boolean =
-              contentType.startsWith("image/") ||
-              contentType.startsWith("video/");
-            const behavior: string = isMedia ? "inline" : "attachment";
-            const fileName = encodeURIComponent(json.originalFileName);
-            c.header(
-              "Content-Disposition",
-              `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
-            );
-          }
+          const isMedia: boolean =
+            contentType.startsWith("image/") ||
+            contentType.startsWith("video/");
+          const behavior: string = isMedia ? "inline" : "attachment";
+          const fileName = encodeURIComponent(
+            json.originalFileName ? json.originalFileName : json.contentName
+          );
+          c.header(
+            "Content-Disposition",
+            `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+          );
         }
         c.header("Access-Control-Allow-Origin", "*");
         return c.body(resp.body);
