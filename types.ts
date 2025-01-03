@@ -20,12 +20,12 @@ export type BuildSchemaProps = {
 };
 
 export type KyError = {
-  name: string;
   response: {
-    code: string | number;
-    title: string;
+    ok: boolean;
+    redirected: boolean;
     status: StatusCode;
-    reason: string;
+    statusText: string;
+    url: string;
   };
 };
 
