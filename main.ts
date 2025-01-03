@@ -3,38 +3,10 @@ import ky, { KyResponse } from "npm:ky";
 import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
-import { Base64Url } from "./utils.ts";
+import { Base64Url, Guards } from "./utils.ts";
 import { Crypto, fJSON } from "./libs.ts";
 import { API_URL, BASE_URL, JSON_SCHEMA, HTTP_STATUS } from "./constants.ts";
-import {
-  Schema,
-  SchemaKeys,
-  BuildSchemaProps,
-  KyError,
-  ErrorType,
-} from "./types.ts";
-
-/**
- * Checks if the given error is an instance of KyError.
- * @param e The error to be checked.
- * @returns True if the error is an instance of KyError, false otherwise.
- * @example
- * const error = new Error("Test");
- * isKyError(error); // => false
- * const kyError = ky.createError(error);
- * isKyError(kyError); // => true
- */
-const isKyError = (e: ErrorType): e is KyError =>
-  typeof e === "object" &&
-  e !== null &&
-  typeof (e as KyError).name === "string" &&
-  typeof (e as KyError).response === "object" &&
-  (e as KyError).response !== null &&
-  (typeof (e as KyError).response.code === "number" ||
-    typeof (e as KyError).response.code === "string") &&
-  typeof (e as KyError).response.title === "string" &&
-  typeof (e as KyError).response.status === "number" &&
-  typeof (e as KyError).response.reason === "string";
+import { Schema, SchemaKeys, BuildSchemaProps, ErrorType } from "./types.ts";
 
 const app = new Hono();
 
@@ -139,7 +111,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         return c.body(resp.body);
       })
       .catch((e: ErrorType) =>
-        isKyError(e)
+        Guards.isKyError(e)
           ? c.json({ error: e.response.reason }, e.response.status)
           : c.json(
               { error: "Internal Server Error" },
@@ -147,7 +119,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             )
       );
   } catch (e) {
-    return isKyError(e)
+    return Guards.isKyError(e)
       ? c.json({ error: e.response.reason }, e.response.status)
       : c.json(
           { error: "Internal Server Error" },
