@@ -5,22 +5,26 @@ import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Base64Url } from "./utils.ts";
 import { Crypto, fJSON } from "./libs.ts";
-import { API_URL, BASE_URL, JSON_SCHEMA } from "./constants.ts";
+import { API_URL, BASE_URL, JSON_SCHEMA, HTTP_STATUS } from "./constants.ts";
+import {
+  Schema,
+  SchemaKeys,
+  BuildSchemaProps,
+  KyError,
+  ErrorType,
+} from "./types.ts";
 
-type Schema<T extends z.ZodType> = {
-  in: {
-    json: z.input<T>;
-  };
-  out: {
-    json: z.infer<T>;
-  };
-};
-type SchemaKeys = keyof typeof JSON_SCHEMA.shape;
-type BuildSchemaProps = {
-  [key in keyof typeof JSON_SCHEMA.shape]: {
-    type: string;
-  };
-};
+const isKyError = (e: ErrorType): e is KyError =>
+  typeof e === "object" &&
+  e !== null &&
+  typeof (e as KyError).name === "string" &&
+  typeof (e as KyError).response === "object" &&
+  (e as KyError).response !== null &&
+  (typeof (e as KyError).response.code === "number" ||
+    typeof (e as KyError).response.code === "string") &&
+  typeof (e as KyError).response.title === "string" &&
+  typeof (e as KyError).response.status === "number" &&
+  typeof (e as KyError).response.reason === "string";
 
 const app = new Hono();
 
@@ -28,12 +32,16 @@ app.post(
   "/generate",
   zValidator("json", JSON_SCHEMA, (value, c: Context<Env, string>) => {
     const data: z.infer<typeof JSON_SCHEMA> | null = value.data;
-    if (!data) return c.json({ error: "JSON is missing" }, 400);
+    if (!data)
+      return c.json({ error: "JSON is missing" }, HTTP_STATUS.BAD_REQUEST);
     if (!JSON_SCHEMA.safeParse(data).success)
-      return c.json({ error: "Invalid JSON" }, 400);
+      return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
     if (data.expiredAt) {
       if (isNaN(Number(data.expiredAt)))
-        return c.json({ error: "Invalid expiredAt format" }, 400);
+        return c.json(
+          { error: "Invalid expiredAt format" },
+          HTTP_STATUS.BAD_REQUEST
+        );
     }
     return data;
   }),
@@ -70,17 +78,20 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       Keys.CRYPTO_KEY
     );
     if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
-      return c.json({ error: "Invalid digit" }, 400);
+      return c.json({ error: "Invalid digit" }, HTTP_STATUS.BAD_REQUEST);
     const json: z.infer<typeof JSON_SCHEMA> = JSON.parse(data);
     if (!JSON_SCHEMA.safeParse(json).success)
-      return c.json({ error: "Invalid JSON" }, 400);
+      return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
     if (json.expiredAt) {
       if (isNaN(Number(json.expiredAt)))
-        return c.json({ error: "Invalid expiredAt format" }, 400);
+        return c.json(
+          { error: "Invalid expiredAt format" },
+          HTTP_STATUS.BAD_REQUEST
+        );
       const currentTime = Date.now();
       const expiredAt = new Date(json.expiredAt).getTime();
       if (currentTime > expiredAt)
-        return c.json({ error: "Token expired" }, 400);
+        return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
     }
     contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
     const postData = {
@@ -117,15 +128,21 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         c.header("Access-Control-Allow-Origin", "*");
         return c.body(resp.body);
       })
-      .catch((e) =>
-        e.response?.reason
+      .catch((e: ErrorType) =>
+        isKyError(e)
           ? c.json({ error: e.response.reason }, e.response.status)
-          : c.json({ error: "Internal Server Error" }, 500)
+          : c.json(
+              { error: "Internal Server Error" },
+              HTTP_STATUS.INTERNAL_SERVER_ERROR
+            )
       );
   } catch (e) {
-    return e.response?.reason
+    return isKyError(e)
       ? c.json({ error: e.response.reason }, e.response.status)
-      : c.json({ error: "Internal Server Error" }, 500);
+      : c.json(
+          { error: "Internal Server Error" },
+          HTTP_STATUS.INTERNAL_SERVER_ERROR
+        );
   }
 });
 
