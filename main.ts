@@ -112,7 +112,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       })
       .catch((e: ErrorType) =>
         Guards.isKyError(e)
-          ? c.json({ error: e.response.reason }, e.response.status)
+          ? c.json({ error: e.response.statusText }, e.response.status)
           : c.json(
               { error: "Internal Server Error" },
               HTTP_STATUS.INTERNAL_SERVER_ERROR
@@ -120,7 +120,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       );
   } catch (e) {
     return Guards.isKyError(e)
-      ? c.json({ error: e.response.reason }, e.response.status)
+      ? c.json({ error: e.response.statusText }, e.response.status)
       : c.json(
           { error: "Internal Server Error" },
           HTTP_STATUS.INTERNAL_SERVER_ERROR
