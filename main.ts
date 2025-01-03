@@ -14,6 +14,16 @@ import {
   ErrorType,
 } from "./types.ts";
 
+/**
+ * Checks if the given error is an instance of KyError.
+ * @param e The error to be checked.
+ * @returns True if the error is an instance of KyError, false otherwise.
+ * @example
+ * const error = new Error("Test");
+ * isKyError(error); // => false
+ * const kyError = ky.createError(error);
+ * isKyError(kyError); // => true
+ */
 const isKyError = (e: ErrorType): e is KyError =>
   typeof e === "object" &&
   e !== null &&
