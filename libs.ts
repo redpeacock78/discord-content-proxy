@@ -2,6 +2,8 @@ import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import fastJson from "npm:fast-json-stringify";
+import { createCanvas, loadImage, Canvas } from "npm:@napi-rs/canvas";
+import { Utils } from "./utils.ts";
 
 export const Crypto = {
   /**
@@ -90,5 +92,178 @@ export const fJSON = {
       };
     if (schema instanceof z.ZodLiteral) return { const: schema._def.value };
     return { type: "unknown" };
+  },
+};
+
+export const Image = {
+  /**
+   * Scrambles an image by dividing it into blocks and rearranging them based on a secret key.
+   *
+   * @param buffer - The image data to be scrambled.
+   * @param contentType - The MIME type of the image, which can be "image/png", "image/jpeg", "image/webp", or "image/avif".
+   * @param secretKey - The secret key used for generating the MD5 hash to sort the blocks.
+   * @returns A Promise that resolves to a Uint8Array containing the scrambled image data.
+   * @throws Error if the content type is unsupported.
+   */
+  scramble: async (
+    buffer: ArrayBuffer,
+    contentType: "image/png" | "image/jpeg" | "image/webp" | "image/avif",
+    secretKey: string
+  ): Promise<Uint8Array> => {
+    const img = await loadImage(new Uint8Array(buffer));
+
+    // 画像の幅と高さを取得
+    const width = img.width;
+    const height = img.height;
+
+    // 最大公約数を分割数として計算
+    const blockNum = Utils.findBestDivisor(width, height);
+
+    // 各ブロックのサイズを計算
+    const blockWidth = Math.floor(width / blockNum);
+    const blockHeight = Math.floor(height / blockNum);
+
+    const blocks: { [key: string]: Canvas } = {};
+
+    // 画像をブロックに分割
+    let loop = 0;
+    for (let y = 0; y < blockNum; y++) {
+      for (let x = 0; x < blockNum; x++) {
+        loop++;
+        const canvas = createCanvas(blockWidth, blockHeight);
+        const ctx = canvas.getContext("2d");
+
+        ctx.drawImage(
+          img,
+          x * blockWidth,
+          y * blockHeight,
+          blockWidth,
+          blockHeight,
+          0,
+          0,
+          blockWidth,
+          blockHeight
+        );
+
+        // キーを計算
+        const keyIndex = loop % secretKey.length || secretKey.length;
+        const keyChar = secretKey.charAt(keyIndex - 1);
+        const key = crypto.MD5(keyChar + loop).toString();
+        blocks[key] = canvas;
+      }
+    }
+
+    // キーでソート
+    const sortedKeys = Object.keys(blocks).sort();
+
+    // 新しい画像を生成
+    const outputCanvas = createCanvas(width, height);
+    const outputCtx = outputCanvas.getContext("2d");
+
+    let offsetX = 0;
+    let offsetY = 0;
+
+    for (const key of sortedKeys) {
+      const block = blocks[key];
+      outputCtx.drawImage(block, offsetX, offsetY);
+
+      offsetX += blockWidth;
+      if (offsetX >= width) {
+        offsetX = 0;
+        offsetY += blockHeight;
+      }
+    }
+
+    let outputBuffer: Uint8Array = new Uint8Array(0);
+    if (contentType === "image/png") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else if (contentType === "image/jpeg") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else if (contentType === "image/webp") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else if (contentType === "image/avif") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else {
+      throw new Error("Unsupported content type");
+    }
+    return outputBuffer;
+  },
+  /**
+   * Restores a randomly shuffled image back to its original state.
+   * @param {ArrayBuffer} buffer The image to be restored, in the form of an ArrayBuffer.
+   * @param {string} contentType The content type of the image (e.g. "image/png", "image/jpeg", etc.).
+   * @param {string} secretKey The secret key used to generate the random permutation.
+   * @returns {Promise<Uint8Array>} A Promise that resolves to the restored image, in the form of a Uint8Array.
+   */
+  restore: async (
+    buffer: ArrayBuffer,
+    contentType: "image/png" | "image/jpeg" | "image/webp" | "image/avif",
+    secretKey: string
+  ): Promise<Uint8Array> => {
+    // 画像を読み込む
+    const image = await loadImage(new Uint8Array(buffer));
+
+    const gridSize = Utils.findBestDivisor(image.width, image.height);
+    const width = Math.floor(image.width / gridSize);
+    const height = Math.floor(image.height / gridSize);
+
+    const keyArray: { key: string; md5: string; index: number }[] = [];
+
+    // MD5 ハッシュ値を基にしたランダム並び替えの準備
+    for (let i = 0; i < gridSize * gridSize; i++) {
+      const loop = i + 1;
+      const keyIndex = loop % secretKey.length || secretKey.length;
+      const keyChar = secretKey.charAt(keyIndex - 1);
+      const md5 = crypto.MD5(keyChar + loop).toString();
+
+      keyArray.push({
+        key: keyChar + loop,
+        md5,
+        index: i + 1,
+      });
+    }
+
+    // MD5 の値で並び替え
+    keyArray.sort((a, b) => (a.md5 < b.md5 ? -1 : 1));
+
+    // 新しいキャンバスを作成
+    const outputCanvas = createCanvas(image.width, image.height);
+    const ctx = outputCanvas.getContext("2d");
+
+    for (let i = 1; i <= gridSize * gridSize; i++) {
+      const index = keyArray.findIndex((item) => item.index === i) + 1;
+
+      const sx = index % gridSize || gridSize;
+      const sy = Math.floor((index - 1) / gridSize);
+
+      const dx = i % gridSize || gridSize;
+      const dy = Math.floor((i - 1) / gridSize);
+
+      ctx.drawImage(
+        image,
+        (sx - 1) * width,
+        sy * height,
+        width,
+        height,
+        (dx - 1) * width,
+        dy * height,
+        width,
+        height
+      );
+    }
+
+    let outputBuffer: Uint8Array = new Uint8Array(0);
+    if (contentType === "image/png") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else if (contentType === "image/jpeg") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else if (contentType === "image/webp") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else if (contentType === "image/avif") {
+      outputBuffer = outputCanvas.toBuffer(contentType);
+    } else {
+      throw new Error("Unsupported content type");
+    }
+    return outputBuffer;
   },
 };
