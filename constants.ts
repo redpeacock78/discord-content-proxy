@@ -5,6 +5,7 @@ export const BASE_URL = new URL("https://cdn.discordapp.com");
 export const API_URL = new URL(
   "https://discord.com/api/v9/attachments/refresh-urls"
 );
+export const DIVISOR_TARGET = 50;
 export const KEY_NAMES = [
   "DIGIT_KEY",
   "CRYPTO_KEY",
