@@ -5,8 +5,8 @@ import fastJson from "npm:fast-json-stringify";
 import {
   createCanvas,
   loadImage,
-  Canvas,
-} from "npm:@napi-rs/canvas-linux-x64-gnu";
+  EmulatedCanvas2D,
+} from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 import { Utils } from "./utils.ts";
 
 export const Crypto = {
@@ -104,21 +104,19 @@ export const Image = {
    * Scrambles an image by dividing it into blocks and rearranging them based on a secret key.
    *
    * @param buffer - The image data to be scrambled.
-   * @param contentType - The MIME type of the image, which can be "image/png", "image/jpeg", "image/webp", or "image/avif".
    * @param secretKey - The secret key used for generating the MD5 hash to sort the blocks.
    * @returns A Promise that resolves to a Uint8Array containing the scrambled image data.
    * @throws Error if the content type is unsupported.
    */
   scramble: async (
     buffer: ArrayBuffer,
-    contentType: "image/png" | "image/jpeg" | "image/webp" | "image/avif",
     secretKey: string
   ): Promise<Uint8Array> => {
     const img = await loadImage(new Uint8Array(buffer));
 
     // 画像の幅と高さを取得
-    const width = img.width;
-    const height = img.height;
+    const width = img.width();
+    const height = img.height();
 
     // 最大公約数を分割数として計算
     const blockNum = Utils.findBestDivisor(width, height);
@@ -127,7 +125,7 @@ export const Image = {
     const blockWidth = Math.floor(width / blockNum);
     const blockHeight = Math.floor(height / blockNum);
 
-    const blocks: { [key: string]: Canvas } = {};
+    const blocks: { [key: string]: EmulatedCanvas2D } = {};
 
     // 画像をブロックに分割
     let loop = 0;
@@ -178,38 +176,28 @@ export const Image = {
       }
     }
 
-    let outputBuffer: Uint8Array = new Uint8Array(0);
-    if (contentType === "image/png") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else if (contentType === "image/jpeg") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else if (contentType === "image/webp") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else if (contentType === "image/avif") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else {
-      throw new Error("Unsupported content type");
-    }
-    return outputBuffer;
+    return outputCanvas.toBuffer();
   },
   /**
    * Restores a randomly shuffled image back to its original state.
    * @param {ArrayBuffer} buffer The image to be restored, in the form of an ArrayBuffer.
-   * @param {string} contentType The content type of the image (e.g. "image/png", "image/jpeg", etc.).
    * @param {string} secretKey The secret key used to generate the random permutation.
    * @returns {Promise<Uint8Array>} A Promise that resolves to the restored image, in the form of a Uint8Array.
    */
   restore: async (
     buffer: ArrayBuffer,
-    contentType: "image/png" | "image/jpeg" | "image/webp" | "image/avif",
     secretKey: string
   ): Promise<Uint8Array> => {
     // 画像を読み込む
     const image = await loadImage(new Uint8Array(buffer));
 
-    const gridSize = Utils.findBestDivisor(image.width, image.height);
-    const width = Math.floor(image.width / gridSize);
-    const height = Math.floor(image.height / gridSize);
+    // 画像の幅と高さを取得
+    const w = image.width();
+    const h = image.height();
+
+    const gridSize = Utils.findBestDivisor(w, h);
+    const width = Math.floor(w / gridSize);
+    const height = Math.floor(h / gridSize);
 
     const keyArray: { key: string; md5: string; index: number }[] = [];
 
@@ -231,7 +219,7 @@ export const Image = {
     keyArray.sort((a, b) => (a.md5 < b.md5 ? -1 : 1));
 
     // 新しいキャンバスを作成
-    const outputCanvas = createCanvas(image.width, image.height);
+    const outputCanvas = createCanvas(w, h);
     const ctx = outputCanvas.getContext("2d");
 
     for (let i = 1; i <= gridSize * gridSize; i++) {
@@ -256,18 +244,6 @@ export const Image = {
       );
     }
 
-    let outputBuffer: Uint8Array = new Uint8Array(0);
-    if (contentType === "image/png") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else if (contentType === "image/jpeg") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else if (contentType === "image/webp") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else if (contentType === "image/avif") {
-      outputBuffer = outputCanvas.toBuffer(contentType);
-    } else {
-      throw new Error("Unsupported content type");
-    }
-    return outputBuffer;
+    return outputCanvas.toBuffer();
   },
 };
