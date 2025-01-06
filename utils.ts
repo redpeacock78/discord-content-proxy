@@ -50,63 +50,19 @@ export const Guards = {
 };
 
 export const Utils = {
-  gcd: (a: number, b: number): number => (b == 0 ? a : Utils.gcd(b, a % b)),
   /**
-   * Finds all divisors of a given number.
-   * @param n The number to find all divisors of.
-   * @returns An array of all divisors of the given number, sorted in ascending order.
+   * Returns an array of all divisors of a given number, up to a maximum target number.
+   * @param n The number to find divisors of.
+   * @param target The maximum number of divisors to find. Defaults to 10.
+   * @returns An array of divisors of n, up to target in length.
    * @example
-   * findDivisors(12); // => [1, 2, 3, 4, 6, 12]
+   * getDivisors(10); // => [1, 2, 5, 10]
+   * getDivisors(12); // => [1, 2, 3, 4, 6, 12]
    */
-  findDivisors: (n: number): number[] => {
-    const divisors: number[] = [];
-    for (let i = 1; i <= Math.sqrt(n); i++) {
-      if (n % i === 0) {
-        divisors.push(i);
-        if (i !== n / i) {
-          divisors.push(n / i);
-        }
-      }
-    }
-    return divisors.sort((a, b) => a - b);
-  },
-  /**
-   * Finds the divisor of the greatest common divisor (GCD) of two numbers
-   * that is closest to a target value.
-   *
-   * @param a - The first number.
-   * @param b - The second number.
-   * @param target - The target value to find the closest divisor to. Defaults to 10.
-   * @returns The divisor of the GCD of `a` and `b` that is closest to the `target`.
-   * @example
-   * findClosestDivisor(24, 36, 5); // => 6
-   */
-  findClosestDivisor: (a: number, b: number, target: number = 10): number => {
-    const gcdValue = Utils.gcd(a, b);
-    const divisors = Utils.findDivisors(gcdValue);
-    return divisors.reduce((closest, divisor) =>
-      Math.abs(divisor - target) < Math.abs(closest - target)
-        ? divisor
-        : closest
-    );
-  },
-  /**
-   * Finds the largest divisor of the minimum of two numbers that is less than or equal to 10.
-   * @param a - The first number.
-   * @param b - The second number.
-   * @returns The largest divisor of the smaller number between `a` and `b` that is less than or equal to 10.
-   */
-  findBestDivisor: (a: number, b: number): number => {
-    const minSize = Math.min(a, b);
-    let bestDivisor = 1;
-    for (let i = 10; i >= 1; i--) {
-      if (minSize % i === 0) {
-        bestDivisor = i;
-        break;
-      }
-    }
-    return bestDivisor;
-  },
+  getDivisors: (n: number, target: number = 10): number[] =>
+    Array.from({ length: target }, (_, i) => i + 1).filter(
+      (div) => n % div === 0
+    ),
   /**
    * Checks if the given MIME type is a valid image type.
    * @param type - The MIME type to check.
