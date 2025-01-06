@@ -119,19 +119,23 @@ export const Image = {
     const width = img.width();
     const height = img.height();
 
-    // 最大公約数を分割数として計算
-    const blockNum = Utils.findClosestDivisor(width, height, DIVISOR_TARGET);
+    const widthDivisors = Utils.getDivisors(width, DIVISOR_TARGET);
+    const heightDivisors = Utils.getDivisors(height, DIVISOR_TARGET);
+
+    // 最適な分割数を選ぶ（ここでは最大値を使用）
+    const blockNumX = Math.max(...widthDivisors);
+    const blockNumY = Math.max(...heightDivisors);
 
     // 各ブロックのサイズを計算
-    const blockWidth = Math.floor(width / blockNum);
-    const blockHeight = Math.floor(height / blockNum);
+    const blockWidth = Math.floor(width / blockNumX);
+    const blockHeight = Math.floor(height / blockNumY);
 
     const blocks: { [key: string]: EmulatedCanvas2D } = {};
 
     // 画像をブロックに分割
     let loop = 0;
-    for (let y = 0; y < blockNum; y++) {
-      for (let x = 0; x < blockNum; x++) {
+    for (let y = 0; y < blockNumY; y++) {
+      for (let x = 0; x < blockNumX; x++) {
         loop++;
         const canvas = createCanvas(blockWidth, blockHeight);
         const ctx = canvas.getContext("2d");
@@ -196,14 +200,20 @@ export const Image = {
     const w = image.width();
     const h = image.height();
 
-    const gridSize = Utils.findClosestDivisor(w, h, DIVISOR_TARGET);
-    const width = Math.floor(w / gridSize);
-    const height = Math.floor(h / gridSize);
+    const widthDivisors = Utils.getDivisors(w, DIVISOR_TARGET);
+    const heightDivisors = Utils.getDivisors(h, DIVISOR_TARGET);
+
+    // 最適な分割数を選ぶ（ここでは最大値を使用）
+    const gridSizeX = Math.max(...widthDivisors);
+    const gridSizeY = Math.max(...heightDivisors);
+
+    const blockWidth = Math.floor(w / gridSizeX);
+    const blockHeight = Math.floor(h / gridSizeY);
 
     const keyArray: { key: string; md5: string; index: number }[] = [];
 
     // MD5 ハッシュ値を基にしたランダム並び替えの準備
-    for (let i = 0; i < gridSize * gridSize; i++) {
+    for (let i = 0; i < gridSizeX * gridSizeY; i++) {
       const loop = i + 1;
       const keyIndex = loop % secretKey.length || secretKey.length;
       const keyChar = secretKey.charAt(keyIndex - 1);
@@ -223,25 +233,25 @@ export const Image = {
     const outputCanvas = createCanvas(w, h);
     const ctx = outputCanvas.getContext("2d");
 
-    for (let i = 1; i <= gridSize * gridSize; i++) {
+    for (let i = 1; i <= gridSizeX * gridSizeY; i++) {
       const index = keyArray.findIndex((item) => item.index === i) + 1;
 
-      const sx = index % gridSize || gridSize;
-      const sy = Math.floor((index - 1) / gridSize);
+      const sx = (index - 1) % gridSizeX;
+      const sy = Math.floor((index - 1) / gridSizeX);
 
-      const dx = i % gridSize || gridSize;
-      const dy = Math.floor((i - 1) / gridSize);
+      const dx = (i - 1) % gridSizeX;
+      const dy = Math.floor((i - 1) / gridSizeX);
 
       ctx.drawImage(
         image,
-        (sx - 1) * width,
-        sy * height,
-        width,
-        height,
-        (dx - 1) * width,
-        dy * height,
-        width,
-        height
+        sx * blockWidth,
+        sy * blockHeight,
+        blockWidth,
+        blockHeight,
+        dx * blockWidth,
+        dy * blockHeight,
+        blockWidth,
+        blockHeight
       );
     }
 
