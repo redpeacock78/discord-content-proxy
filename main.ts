@@ -3,12 +3,41 @@ import ky, { KyResponse } from "npm:ky";
 import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
-import { Base64Url, Guards } from "./utils.ts";
-import { Crypto, fJSON } from "./libs.ts";
+import { Crypto, fJSON, Image } from "./libs.ts";
+import { Base64Url, Guards, Utils } from "./utils.ts";
 import { API_URL, BASE_URL, JSON_SCHEMA, HTTP_STATUS } from "./constants.ts";
 import { Schema, SchemaKeys, BuildSchemaProps, ErrorType } from "./types.ts";
 
 const app = new Hono();
+
+app.post("/scramble", async (c: Context) => {
+  const body = await c.req.parseBody();
+  const file = body["file"] as File;
+  if (typeof file !== "object")
+    return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
+  const contentType = file.type;
+  const isImage: boolean = contentType.startsWith("image/");
+  if (!isImage)
+    return c.json({ error: "Invalid file type" }, HTTP_STATUS.BAD_REQUEST);
+  if (!Utils.isValidImageType(contentType))
+    return c.json({ error: "Invalid image type" }, HTTP_STATUS.BAD_REQUEST);
+  const buffer = await file.arrayBuffer();
+  try {
+    const scrambleImg = await Image.scramble(
+      buffer,
+      contentType,
+      Keys.IMG_SECRET
+    );
+    c.header("Content-Length", `${scrambleImg.length}`);
+    c.header("Content-Type", contentType);
+    return c.body(scrambleImg);
+  } catch (_e) {
+    return c.json(
+      { error: "Failed to generate image" },
+      HTTP_STATUS.BAD_REQUEST
+    );
+  }
+});
 
 app.post(
   "/generate",
@@ -89,15 +118,18 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
     return await ky
       .get(refreshedUrl)
-      .then((resp: KyResponse): Response => {
+      .then(async (resp: KyResponse): Promise<Response> => {
+        if (!resp.body)
+          return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
+        let result: Uint8Array | ReadableStream<Uint8Array> = new Uint8Array(0);
         const contentType = resp.headers.get("content-type");
         const contentLength = resp.headers.get("content-length");
         if (contentLength) c.header("Content-Length", contentLength);
         if (contentType) {
           c.header("Content-Type", contentType);
-          const isMedia: boolean =
-            contentType.startsWith("image/") ||
-            contentType.startsWith("video/");
+          const isImage: boolean = contentType.startsWith("image/");
+          const isVideo: boolean = contentType.startsWith("video/");
+          const isMedia: boolean = isImage || isVideo;
           const behavior: string = isMedia ? "inline" : "attachment";
           const fileName = encodeURIComponent(
             json.originalFileName ?? json.contentName
@@ -106,9 +138,22 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             "Content-Disposition",
             `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
           );
+          if (!isImage) {
+            result = resp.body;
+          } else {
+            if (Utils.isValidImageType(contentType)) {
+              const restoreImg = await Image.restore(
+                await resp.arrayBuffer(),
+                contentType,
+                Keys.IMG_SECRET
+              );
+              c.header("Content-Length", `${restoreImg.length}`);
+              result = restoreImg;
+            }
+          }
         }
         c.header("Access-Control-Allow-Origin", "*");
-        return c.body(resp.body);
+        return c.body(result);
       })
       .catch((e: ErrorType) =>
         Guards.isKyError(e)
