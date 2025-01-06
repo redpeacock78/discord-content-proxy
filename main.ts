@@ -23,11 +23,7 @@ app.post("/scramble", async (c: Context) => {
     return c.json({ error: "Invalid image type" }, HTTP_STATUS.BAD_REQUEST);
   const buffer = await file.arrayBuffer();
   try {
-    const scrambleImg = await Image.scramble(
-      buffer,
-      contentType,
-      Keys.IMG_SECRET
-    );
+    const scrambleImg = await Image.scramble(buffer, Keys.IMG_SECRET);
     c.header("Content-Length", `${scrambleImg.length}`);
     c.header("Content-Type", contentType);
     return c.body(scrambleImg);
@@ -144,7 +140,6 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             if (Utils.isValidImageType(contentType)) {
               const restoreImg = await Image.restore(
                 await resp.arrayBuffer(),
-                contentType,
                 Keys.IMG_SECRET
               );
               c.header("Content-Length", `${restoreImg.length}`);
