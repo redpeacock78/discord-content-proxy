@@ -8,6 +8,7 @@ import {
   EmulatedCanvas2D,
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 import { Utils } from "./utils.ts";
+import { DIVISOR_TARGET } from "./constants.ts";
 
 export const Crypto = {
   /**
@@ -119,7 +120,7 @@ export const Image = {
     const height = img.height();
 
     // 最大公約数を分割数として計算
-    const blockNum = Utils.findBestDivisor(width, height);
+    const blockNum = Utils.findClosestDivisor(width, height, DIVISOR_TARGET);
 
     // 各ブロックのサイズを計算
     const blockWidth = Math.floor(width / blockNum);
@@ -195,7 +196,7 @@ export const Image = {
     const w = image.width();
     const h = image.height();
 
-    const gridSize = Utils.findBestDivisor(w, h);
+    const gridSize = Utils.findClosestDivisor(w, h, DIVISOR_TARGET);
     const width = Math.floor(w / gridSize);
     const height = Math.floor(h / gridSize);
 
