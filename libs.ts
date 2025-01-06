@@ -2,7 +2,11 @@ import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import fastJson from "npm:fast-json-stringify";
-import { createCanvas, loadImage, Canvas } from "npm:@napi-rs/canvas";
+import {
+  createCanvas,
+  loadImage,
+  Canvas,
+} from "npm:@napi-rs/canvas-linux-x64-gnu";
 import { Utils } from "./utils.ts";
 
 export const Crypto = {
