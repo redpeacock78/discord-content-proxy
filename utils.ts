@@ -1,3 +1,4 @@
+import { VALID_IMG_TYPES } from "./constants.ts";
 import { KyError, ErrorType } from "./types.ts";
 
 export const Base64Url = {
@@ -46,4 +47,34 @@ export const Guards = {
     typeof (e as KyError).response.status === "number" &&
     typeof (e as KyError).response.statusText === "string" &&
     typeof (e as KyError).response.url === "string",
+};
+
+export const Utils = {
+  /**
+   * Finds the largest divisor of the minimum of two numbers that is less than or equal to 10.
+   * @param a - The first number.
+   * @param b - The second number.
+   * @returns The largest divisor of the smaller number between `a` and `b` that is less than or equal to 10.
+   */
+  findBestDivisor: (a: number, b: number): number => {
+    const minSize = Math.min(a, b);
+    let bestDivisor = 1;
+    for (let i = 10; i >= 1; i--) {
+      if (minSize % i === 0) {
+        bestDivisor = i;
+        break;
+      }
+    }
+    return bestDivisor;
+  },
+  /**
+   * Checks if the given MIME type is a valid image type.
+   * @param type - The MIME type to check.
+   * @returns True if the MIME type is valid and included in the list of valid image types, false otherwise.
+   */
+  isValidImageType: (
+    type: string
+  ): type is (typeof VALID_IMG_TYPES)[number] => {
+    return VALID_IMG_TYPES.includes(type as (typeof VALID_IMG_TYPES)[number]);
+  },
 };
