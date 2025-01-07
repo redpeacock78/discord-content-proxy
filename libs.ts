@@ -7,8 +7,9 @@ import {
   loadImage,
   EmulatedCanvas2D,
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
+import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 import { Utils } from "./utils.ts";
-import { DIVISOR_TARGET } from "./constants.ts";
+import { DIVISOR_TARGET, VALID_IMG_TYPES } from "./constants.ts";
 
 export const Crypto = {
   /**
@@ -35,6 +36,12 @@ export const Crypto = {
    */
   genDigit: (data: string, key: string): string =>
     crypto.HmacSHA256(data, key).toString(),
+  /**
+   * Generates a hash for the given data using MD5 algorithm.
+   * @param {string} data The data to be hashed.
+   * @returns {string} The hash string.
+   */
+  genHash: (data: string): string => crypto.MD5(data).toString(),
 };
 export const fJSON = {
   /**
@@ -100,17 +107,19 @@ export const fJSON = {
   },
 };
 
-export const Image = {
+export const Imager = {
   /**
    * Scrambles an image by dividing it into blocks and rearranging them based on a secret key.
    *
    * @param buffer - The image data to be scrambled.
+   * @param mimeType - The MIME type of the image data.
    * @param secretKey - The secret key used for generating the MD5 hash to sort the blocks.
    * @returns A Promise that resolves to a Uint8Array containing the scrambled image data.
    * @throws Error if the content type is unsupported.
    */
   scramble: async (
     buffer: ArrayBuffer,
+    mimeType: (typeof VALID_IMG_TYPES)[number],
     secretKey: string
   ): Promise<Uint8Array> => {
     const img = await loadImage(new Uint8Array(buffer));
@@ -155,7 +164,7 @@ export const Image = {
         // キーを計算
         const keyIndex = loop % secretKey.length || secretKey.length;
         const keyChar = secretKey.charAt(keyIndex - 1);
-        const key = crypto.MD5(keyChar + loop).toString();
+        const key = Crypto.genHash(keyChar + loop);
         blocks[key] = canvas;
       }
     }
@@ -181,43 +190,55 @@ export const Image = {
       }
     }
 
-    return outputCanvas.toBuffer();
+    if (mimeType === "image/jpeg") {
+      try {
+        const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
+        return await decodeImg.encodeJPEG();
+      } catch (e) {
+        throw new Error(`Failed to encode JPEG: ${e}`);
+      }
+    } else {
+      return outputCanvas.toBuffer();
+    }
   },
   /**
    * Restores a randomly shuffled image back to its original state.
    * @param {ArrayBuffer} buffer The image to be restored, in the form of an ArrayBuffer.
+   * @param {string} mimeType The MIME type of the image.
    * @param {string} secretKey The secret key used to generate the random permutation.
    * @returns {Promise<Uint8Array>} A Promise that resolves to the restored image, in the form of a Uint8Array.
    */
   restore: async (
     buffer: ArrayBuffer,
+    mimeType: (typeof VALID_IMG_TYPES)[number],
     secretKey: string
   ): Promise<Uint8Array> => {
     // 画像を読み込む
     const image = await loadImage(new Uint8Array(buffer));
 
     // 画像の幅と高さを取得
-    const w = image.width();
-    const h = image.height();
+    const width = image.width();
+    const height = image.height();
 
-    const widthDivisors = Utils.getDivisors(w, DIVISOR_TARGET);
-    const heightDivisors = Utils.getDivisors(h, DIVISOR_TARGET);
+    // 分割数を計算
+    const widthDivisors = Utils.getDivisors(width, DIVISOR_TARGET);
+    const heightDivisors = Utils.getDivisors(height, DIVISOR_TARGET);
 
     // 最適な分割数を選ぶ（ここでは最大値を使用）
     const gridSizeX = Math.max(...widthDivisors);
     const gridSizeY = Math.max(...heightDivisors);
 
-    const blockWidth = Math.floor(w / gridSizeX);
-    const blockHeight = Math.floor(h / gridSizeY);
+    // 各ブロックのサイズを計算
+    const blockWidth = Math.floor(width / gridSizeX);
+    const blockHeight = Math.floor(height / gridSizeY);
 
     const keyArray: { key: string; md5: string; index: number }[] = [];
 
-    // MD5 ハッシュ値を基にしたランダム並び替えの準備
     for (let i = 0; i < gridSizeX * gridSizeY; i++) {
       const loop = i + 1;
       const keyIndex = loop % secretKey.length || secretKey.length;
       const keyChar = secretKey.charAt(keyIndex - 1);
-      const md5 = crypto.MD5(keyChar + loop).toString();
+      const md5 = Crypto.genHash(keyChar + loop);
 
       keyArray.push({
         key: keyChar + loop,
@@ -230,7 +251,7 @@ export const Image = {
     keyArray.sort((a, b) => (a.md5 < b.md5 ? -1 : 1));
 
     // 新しいキャンバスを作成
-    const outputCanvas = createCanvas(w, h);
+    const outputCanvas = createCanvas(width, height);
     const ctx = outputCanvas.getContext("2d");
 
     for (let i = 1; i <= gridSizeX * gridSizeY; i++) {
@@ -255,6 +276,15 @@ export const Image = {
       );
     }
 
-    return outputCanvas.toBuffer();
+    if (mimeType === (typeof VALID_IMG_TYPES)[1]) {
+      try {
+        const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
+        return await decodeImg.encodeJPEG();
+      } catch (e) {
+        throw new Error(`Failed to encode JPEG: ${e}`);
+      }
+    } else {
+      return outputCanvas.toBuffer();
+    }
   },
 };
