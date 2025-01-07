@@ -155,7 +155,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
                   contentType,
                   Keys.IMG_SECRET
                 );
-                c.header("Content-Length", `${i.length}`);
+                c.header("Content-Length", `${restoreImg.length}`);
                 result = restoreImg;
               } catch (_e: unknown) {
                 throw new Error();
