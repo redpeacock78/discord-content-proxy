@@ -149,18 +149,17 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             result = resp.body;
           } else {
             if (Utils.isValidImageType(contentType)) {
-              await Imager.restore(
-                await resp.arrayBuffer(),
-                contentType,
-                Keys.IMG_SECRET
-              )
-                .then((i: Uint8Array) => {
-                  c.header("Content-Length", `${i.length}`);
-                  result = i;
-                })
-                .then((_e: unknown) => {
-                  throw new Error();
-                });
+              try {
+                const restoreImg = await Imager.restore(
+                  await resp.arrayBuffer(),
+                  contentType,
+                  Keys.IMG_SECRET
+                );
+                c.header("Content-Length", `${i.length}`);
+                result = restoreImg;
+              } catch (_e: unknown) {
+                throw new Error();
+              }
             }
           }
         }
