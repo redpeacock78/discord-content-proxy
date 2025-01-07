@@ -60,9 +60,10 @@ export const Utils = {
    * getDivisors(12); // => [1, 2, 3, 4, 6, 12]
    */
   getDivisors: (n: number, target: number = 10): number[] =>
-    Array.from({ length: target }, (_, i) => i + 1).filter(
-      (div) => n % div === 0
-    ),
+    Array.from(
+      { length: target },
+      (_: unknown, i: number): number => i + 1
+    ).filter((div: number): boolean => n % div === 0),
   /**
    * Checks if the given MIME type is a valid image type.
    * @param type - The MIME type to check.
