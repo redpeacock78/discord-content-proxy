@@ -3,7 +3,7 @@ import ky, { KyResponse } from "npm:ky";
 import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
-import { Crypto, fJSON, Image } from "./libs.ts";
+import { Crypto, fJSON, Imager } from "./libs.ts";
 import { Base64Url, Guards, Utils } from "./utils.ts";
 import { API_URL, BASE_URL, JSON_SCHEMA, HTTP_STATUS } from "./constants.ts";
 import { Schema, SchemaKeys, BuildSchemaProps, ErrorType } from "./types.ts";
@@ -21,18 +21,22 @@ app.post("/scramble", async (c: Context) => {
     return c.json({ error: "Invalid file type" }, HTTP_STATUS.BAD_REQUEST);
   if (!Utils.isValidImageType(contentType))
     return c.json({ error: "Invalid image type" }, HTTP_STATUS.BAD_REQUEST);
-  const buffer = await file.arrayBuffer();
-  try {
-    const scrambleImg = await Image.scramble(buffer, Keys.IMG_SECRET);
-    c.header("Content-Length", `${scrambleImg.length}`);
-    c.header("Content-Type", contentType);
-    return c.body(scrambleImg);
-  } catch (_e) {
-    return c.json(
-      { error: "Failed to generate image" },
-      HTTP_STATUS.BAD_REQUEST
+  return await Imager.scramble(
+    await file.arrayBuffer(),
+    contentType,
+    Keys.IMG_SECRET
+  )
+    .then((i: Uint8Array) => {
+      c.header("Content-Length", `${i.length}`);
+      c.header("Content-Type", contentType);
+      return c.body(i);
+    })
+    .catch((_e: unknown) =>
+      c.json(
+        { error: "Failed to generate image" },
+        HTTP_STATUS.INTERNAL_SERVER_ERROR
+      )
     );
-  }
 });
 
 app.post(
@@ -145,12 +149,18 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             result = resp.body;
           } else {
             if (Utils.isValidImageType(contentType)) {
-              const restoreImg = await Image.restore(
+              await Imager.restore(
                 await resp.arrayBuffer(),
+                contentType,
                 Keys.IMG_SECRET
-              );
-              c.header("Content-Length", `${restoreImg.length}`);
-              result = restoreImg;
+              )
+                .then((i: Uint8Array) => {
+                  c.header("Content-Length", `${i.length}`);
+                  result = i;
+                })
+                .then((_e: unknown) => {
+                  throw new Error();
+                });
             }
           }
         }
