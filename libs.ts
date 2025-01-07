@@ -276,7 +276,7 @@ export const Imager = {
       );
     }
 
-    if (mimeType === (typeof VALID_IMG_TYPES)[1]) {
+    if (mimeType === "image/jpeg") {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
         return await decodeImg.encodeJPEG();
