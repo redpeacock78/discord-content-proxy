@@ -12,7 +12,11 @@ export const KEY_NAMES = [
   "DISCORD_TOKEN",
   "IMG_SECRET",
 ] as const;
-export const VALID_IMG_TYPES = ["image/png", "image/jpeg"] as const;
+export const IMG_TYPES = {
+  JPG: "image/jpeg",
+  PNG: "image/png",
+} as const;
+export const VALID_IMG_TYPES = [IMG_TYPES.JPG, IMG_TYPES.PNG] as const;
 export const JSON_SCHEMA = z.object({
   channelId: z.string(),
   messageId: z.string(),
