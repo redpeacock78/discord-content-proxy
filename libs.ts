@@ -9,7 +9,7 @@ import {
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 import { Utils } from "./utils.ts";
-import { DIVISOR_TARGET, VALID_IMG_TYPES } from "./constants.ts";
+import { DIVISOR_TARGET, VALID_IMG_TYPES, IMG_TYPES } from "./constants.ts";
 
 export const Crypto = {
   /**
@@ -43,6 +43,7 @@ export const Crypto = {
    */
   genHash: (data: string): string => crypto.MD5(data).toString(),
 };
+
 export const fJSON = {
   /**
    * Stringifies an object to a JSON string according to the given schema.
@@ -122,12 +123,13 @@ export const Imager = {
     mimeType: (typeof VALID_IMG_TYPES)[number],
     secretKey: string
   ): Promise<Uint8Array> => {
-    const img = await loadImage(new Uint8Array(buffer));
+    const image = await loadImage(new Uint8Array(buffer));
 
     // 画像の幅と高さを取得
-    const width = img.width();
-    const height = img.height();
+    const width = image.width();
+    const height = image.height();
 
+    // 分割数を計算
     const widthDivisors = Utils.getDivisors(width, DIVISOR_TARGET);
     const heightDivisors = Utils.getDivisors(height, DIVISOR_TARGET);
 
@@ -150,7 +152,7 @@ export const Imager = {
         const ctx = canvas.getContext("2d");
 
         ctx.drawImage(
-          img,
+          image,
           x * blockWidth,
           y * blockHeight,
           blockWidth,
@@ -190,7 +192,7 @@ export const Imager = {
       }
     }
 
-    if (mimeType === "image/jpeg") {
+    if (mimeType === IMG_TYPES.JPG) {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
         return await decodeImg.encodeJPEG();
@@ -276,7 +278,7 @@ export const Imager = {
       );
     }
 
-    if (mimeType === "image/jpeg") {
+    if (mimeType === IMG_TYPES.JPG) {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
         return await decodeImg.encodeJPEG();
