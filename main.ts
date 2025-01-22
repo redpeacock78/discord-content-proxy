@@ -219,7 +219,6 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         >;
       }
     })();
-    console.log(json);
     if (!JSON_SCHEMA.safeParse(json).success)
       return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
     if (json.expiredAt) {
