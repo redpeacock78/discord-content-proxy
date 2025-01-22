@@ -15,6 +15,7 @@ import {
   MAX_SEGMENT_SIZE,
 } from "./constants.ts";
 import { Schema, ErrorType } from "./types.ts";
+import { or } from "../../Library/Caches/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/index.d.ts";
 
 const app = new Hono();
 
@@ -115,6 +116,7 @@ app.post("/upload", async (c: Context) => {
         channelId: url.pathname.split("/")[2],
         messageId: url.pathname.split("/")[3],
         contentName: url.pathname.split("/")[4],
+        originalFileName: file.name,
       };
       const res = await app.request("/generate", {
         method: "POST",
