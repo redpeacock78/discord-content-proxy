@@ -1,4 +1,5 @@
 import { z } from "npm:zod";
+import ky from "npm:ky";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import fastJson from "npm:fast-json-stringify";
@@ -9,7 +10,12 @@ import {
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 import { Utils } from "./utils.ts";
-import { DIVISOR_TARGET, VALID_IMG_TYPES, IMG_TYPES } from "./constants.ts";
+import {
+  DIVISOR_TARGET,
+  VALID_IMG_TYPES,
+  IMG_TYPES,
+  JSON_SCHEMA,
+} from "./constants.ts";
 
 export const Crypto = {
   /**
@@ -47,12 +53,12 @@ export const Crypto = {
 export const fJSON = {
   /**
    * Stringifies an object to a JSON string according to the given schema.
-   * @param {fastJson.AnySchema} schema The JSON schema to be used for stringification.
+   * @param {fastJson.Schema} schema The JSON schema to be used for stringification.
    * @param {TDoc} doc The object to be stringified.
    * @returns {string} The JSON string representation of the object.
    */
   stringify: <TDoc extends object = object>(
-    schema: fastJson.AnySchema,
+    schema: fastJson.Schema,
     doc: TDoc
   ): string => fastJson(schema)(doc),
   /**
@@ -106,6 +112,41 @@ export const fJSON = {
     if (schema instanceof z.ZodLiteral) return { const: schema._def.value };
     return { type: "unknown" };
   },
+  /**
+   * Generates a JSON schema from a given Zod object schema.
+   *
+   * @param {z.ZodObject<T>} schema - The Zod object schema to be converted.
+   * @returns {fastJson.Schema} The generated JSON schema with properties derived from the given Zod schema.
+   *
+   * @template T - The raw shape type of the Zod object schema.
+   *
+   * @example
+   * const zodSchema = z.object({
+   *   name: z.string(),
+   *   age: z.number(),
+   * });
+   * const jsonSchema = fJSON.genSchema(zodSchema);
+   * // => { title: "JSON Schema", type: "object", properties: { name: { type: "string" }, age: { type: "number" } } }
+   */
+  genSchema: <T extends z.ZodRawShape>(
+    schema: z.ZodObject<T>
+  ): fastJson.Schema =>
+    ({
+      title: "JSON Schema",
+      type: "object",
+      properties: (
+        Object.keys(schema.shape) as Array<keyof typeof schema.shape>
+      ).reduce(
+        (
+          acc: Record<string, Partial<fastJson.Schema>>,
+          key: keyof typeof schema.shape
+        ): Record<string, Partial<fastJson.Schema>> => ({
+          ...acc,
+          [key]: fJSON.deriveJsonSchema(schema.shape[key]),
+        }),
+        {} as Record<string, Partial<fastJson.Schema>>
+      ),
+    } as const),
 };
 
 export const Imager = {
@@ -287,6 +328,49 @@ export const Imager = {
       }
     } else {
       return outputCanvas.toBuffer();
+    }
+  },
+};
+
+export const Data = {
+  /**
+   * Uploads a segment of data to Discord and appends the information to the
+   * JSON object.
+   * @param data The data to be uploaded.
+   * @param json The JSON object to be updated.
+   * @param segmentIndex The index of the segment.
+   * @param webhook The webhook URL to upload to.
+   * @throws {Error} If there is an error while uploading the segment.
+   */
+  uploadSegment: async (
+    data: Uint8Array,
+    json: z.infer<typeof JSON_SCHEMA>,
+    segmentIndex: number,
+    webhook: string
+  ) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", new Blob([data]));
+      const options = {
+        body: formData,
+        headers: {},
+      };
+      const response = await ky.post(webhook, options).json();
+      const url = new URL(
+        (response as { attachments: [{ url: string }] }).attachments[0].url
+      );
+      const pathname = url.pathname;
+      const channelId = pathname.split("/")[2];
+      const messageId = pathname.split("/")[3];
+      const contentName = pathname.split("/")[4];
+      json.segments!.push({
+        channelId,
+        messageId,
+        contentName,
+        segmentIndex,
+      });
+    } catch (e) {
+      throw e as Error;
     }
   },
 };
