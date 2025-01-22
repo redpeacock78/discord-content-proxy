@@ -1,12 +1,20 @@
 import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
+import JSONCrush from "npm:jsoncrush";
+import { fileTypeFromBuffer } from "npm:file-type";
 import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
-import { Crypto, fJSON, Imager } from "./libs.ts";
+import { Crypto, fJSON, Imager, Data } from "./libs.ts";
 import { Base64Url, Guards, Utils } from "./utils.ts";
-import { API_URL, BASE_URL, JSON_SCHEMA, HTTP_STATUS } from "./constants.ts";
-import { Schema, SchemaKeys, BuildSchemaProps, ErrorType } from "./types.ts";
+import {
+  API_URL,
+  BASE_URL,
+  JSON_SCHEMA,
+  HTTP_STATUS,
+  MAX_SEGMENT_SIZE,
+} from "./constants.ts";
+import { Schema, ErrorType } from "./types.ts";
 
 const app = new Hono();
 
@@ -64,19 +72,10 @@ app.post(
     }
   ),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
-    const buildSchema = {
-      title: "JSON Schema",
-      type: "object",
-      properties: (Object.keys(JSON_SCHEMA.shape) as Array<SchemaKeys>).reduce(
-        (acc: BuildSchemaProps, key: SchemaKeys): BuildSchemaProps => ({
-          ...acc,
-          [key]: fJSON.deriveJsonSchema(JSON_SCHEMA.shape[key]),
-        }),
-        {} as BuildSchemaProps
-      ),
-    } as const;
     const json = c.req.valid("json");
-    const data = fJSON.stringify(buildSchema, json);
+    const data = JSONCrush.crush(
+      fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json)
+    );
     const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
     const encrypted: string = Base64Url.encode(
       Crypto.encrypt(data, Keys.CRYPTO_KEY)
@@ -84,6 +83,120 @@ app.post(
     return c.json({ digit, encrypted });
   }
 );
+
+app.post("/upload", async (c: Context) => {
+  const webhooks = [
+    Keys.DISCORD_WEBHOOK_URL_1,
+    Keys.DISCORD_WEBHOOK_URL_2,
+    Keys.DISCORD_WEBHOOK_URL_3,
+  ];
+  const body = await c.req.parseBody();
+  const file = body["file"] as File;
+  if (typeof file !== "object")
+    return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
+  const data = await file.arrayBuffer();
+  const contentType = (await fileTypeFromBuffer(data))?.mime ?? file.type;
+  const contentSize = file.size;
+  if (contentSize < 10485760) {
+    const formData = new FormData();
+    formData.append("file", new Blob([data], { type: contentType }), file.name);
+    const options = {
+      body: formData,
+      headers: {},
+    };
+    try {
+      const response = await ky
+        .post(webhooks[Math.floor(Math.random() * webhooks.length)], options)
+        .json();
+      const url = new URL(
+        (response as { attachments: [{ url: string }] }).attachments[0].url
+      );
+      const json = {
+        channelId: url.pathname.split("/")[2],
+        messageId: url.pathname.split("/")[3],
+        contentName: url.pathname.split("/")[4],
+      };
+      const res = await app.request("/generate", {
+        method: "POST",
+        body: fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json),
+        headers: new Headers({ "Content-Type": "application/json" }),
+      });
+      return c.json(await res.json());
+    } catch (_e) {
+      return c.json(
+        { error: "Failed to upload file" },
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
+  } else {
+    const json: z.infer<typeof JSON_SCHEMA> = {
+      originalFileName: file.name,
+      contentType: contentType,
+      segments: [],
+    };
+    const stream = file.stream();
+    const reader = stream.getReader();
+    let index = 0;
+    let uploadedSize = 0;
+    const segmentBuffer = new Uint8Array(MAX_SEGMENT_SIZE);
+    while (uploadedSize < contentSize) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      let offset = 0;
+      while (offset < value!.byteLength) {
+        const chunkSize = Math.min(
+          MAX_SEGMENT_SIZE - index,
+          value!.byteLength - offset
+        );
+        // Copy data into the segment buffer
+        segmentBuffer.set(value!.subarray(offset, offset + chunkSize), index);
+        index += chunkSize;
+        offset += chunkSize;
+        // If segment is full, upload it
+        if (index === MAX_SEGMENT_SIZE) {
+          try {
+            await Data.uploadSegment(
+              segmentBuffer,
+              json,
+              json.segments!.length,
+              webhooks[Math.floor(Math.random() * webhooks.length)]
+            );
+          } catch (_e) {
+            return c.json(
+              { error: "Failed to upload segment" },
+              HTTP_STATUS.BAD_REQUEST
+            );
+          }
+          index = 0;
+        }
+      }
+      uploadedSize += value!.byteLength;
+    }
+    // Upload any remaining data
+    if (index > 0) {
+      try {
+        await Data.uploadSegment(
+          segmentBuffer.subarray(0, index),
+          json,
+          json.segments!.length,
+          webhooks[Math.floor(Math.random() * webhooks.length)]
+        );
+      } catch (_e) {
+        return c.json(
+          { error: "Failed to upload segment" },
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+    }
+    json.segments!.sort((a, b) => a.segmentIndex - b.segmentIndex);
+    const res = await app.request("/generate", {
+      method: "POST",
+      body: fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json),
+      headers: new Headers({ "Content-Type": "application/json" }),
+    });
+    return c.json(await res.json());
+  }
+});
 
 app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const refreshApi: URL = API_URL;
@@ -97,7 +210,16 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     );
     if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
       return c.json({ error: "Invalid digit" }, HTTP_STATUS.BAD_REQUEST);
-    const json: z.infer<typeof JSON_SCHEMA> = JSON.parse(data);
+    const json = (() => {
+      try {
+        return JSON.parse(data) as z.infer<typeof JSON_SCHEMA>;
+      } catch {
+        return JSON.parse(JSONCrush.uncrush(data)) as z.infer<
+          typeof JSON_SCHEMA
+        >;
+      }
+    })();
+    console.log(json);
     if (!JSON_SCHEMA.safeParse(json).success)
       return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
     if (json.expiredAt) {
@@ -111,69 +233,121 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       if (currentTime > expiredAt)
         return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
     }
-    contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
-    const postData = {
-      attachment_urls: [contentUrl],
-    };
-    const headersData = {
-      Authorization: Keys.DISCORD_TOKEN,
-    };
-    const option = { json: postData, headers: headersData };
-    const refreshData: { refreshed_urls: [{ refreshed: string }] } = await ky
-      .post(refreshApi, option)
-      .json();
-    const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
-    return await ky
-      .get(refreshedUrl)
-      .then(async (resp: KyResponse): Promise<Response> => {
-        if (!resp.body)
-          return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
-        let result: Uint8Array | ReadableStream<Uint8Array> = new Uint8Array(0);
-        const contentType = resp.headers.get("content-type");
-        const contentLength = resp.headers.get("content-length");
-        if (contentLength) c.header("Content-Length", contentLength);
-        if (contentType) {
-          c.header("Content-Type", contentType);
-          const isImage: boolean = contentType.startsWith("image/");
-          const isVideo: boolean = contentType.startsWith("video/");
-          const isMedia: boolean = isImage || isVideo;
-          const behavior: string = isMedia ? "inline" : "attachment";
-          const fileName = encodeURIComponent(
-            json.originalFileName ?? json.contentName
+    if (json.segments) {
+      const buffers: Uint8Array[] = [];
+      for (const segment of json.segments) {
+        contentUrl.pathname = `/attachments/${segment.channelId}/${segment.messageId}/${segment.contentName}`;
+        const postData = {
+          attachment_urls: [contentUrl],
+        };
+        const headersData = {
+          Authorization: Keys.DISCORD_TOKEN,
+        };
+        const option = { json: postData, headers: headersData };
+        try {
+          const refreshData: { refreshed_urls: [{ refreshed: string }] } =
+            await ky.post(refreshApi, option).json();
+          const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
+          const response = await ky.get(refreshedUrl);
+          if (!response.ok)
+            throw new Error(`Failed to fetch segment: ${segment.segmentIndex}`);
+          const arrayBuffer = await response.arrayBuffer();
+          buffers.push(new Uint8Array(arrayBuffer));
+        } catch (_e) {
+          return c.json(
+            { error: `Failed to fetch segment: ${segment.segmentIndex}` },
+            HTTP_STATUS.BAD_REQUEST
           );
-          c.header(
-            "Content-Disposition",
-            `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+        }
+      }
+      const totalLength = buffers.reduce((sum, buf) => sum + buf.length, 0);
+      const resultBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buffer of buffers) {
+        resultBuffer.set(buffer, offset);
+        offset += buffer.length;
+      }
+      c.header("Content-Length", `${resultBuffer.length}`);
+      c.header("Content-Type", json.contentType);
+      const isImage: boolean = (json.contentType ?? "").startsWith("image/");
+      const isVideo: boolean = (json.contentType ?? "").startsWith("video/");
+      const isMedia: boolean = isImage || isVideo;
+      const behavior: string = isMedia ? "inline" : "attachment";
+      const fileName = encodeURIComponent(
+        json.originalFileName ?? json.contentName!
+      );
+      c.header(
+        "Content-Disposition",
+        `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+      );
+      return c.body(resultBuffer);
+    } else {
+      contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
+      const postData = {
+        attachment_urls: [contentUrl],
+      };
+      const headersData = {
+        Authorization: Keys.DISCORD_TOKEN,
+      };
+      const option = { json: postData, headers: headersData };
+      const refreshData: { refreshed_urls: [{ refreshed: string }] } = await ky
+        .post(refreshApi, option)
+        .json();
+      const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
+      return await ky
+        .get(refreshedUrl)
+        .then(async (resp: KyResponse): Promise<Response> => {
+          if (!resp.body)
+            return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
+          let result: Uint8Array | ReadableStream<Uint8Array> = new Uint8Array(
+            0
           );
-          if (!isImage) {
-            result = resp.body;
-          } else {
-            if (Utils.isValidImageType(contentType)) {
-              try {
-                const restoreImg = await Imager.restore(
-                  await resp.arrayBuffer(),
-                  contentType,
-                  Keys.IMG_SECRET
-                );
-                c.header("Content-Length", `${restoreImg.length}`);
-                result = restoreImg;
-              } catch (_e: unknown) {
-                throw new Error();
+          const contentType = resp.headers.get("content-type");
+          const contentLength = resp.headers.get("content-length");
+          if (contentLength) c.header("Content-Length", contentLength);
+          if (contentType) {
+            c.header("Content-Type", contentType);
+            const isImage: boolean = contentType.startsWith("image/");
+            const isVideo: boolean = contentType.startsWith("video/");
+            const isMedia: boolean = isImage || isVideo;
+            const behavior: string = isMedia ? "inline" : "attachment";
+            const fileName = encodeURIComponent(
+              json.originalFileName ?? json.contentName!
+            );
+            c.header(
+              "Content-Disposition",
+              `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+            );
+            if (!isImage) {
+              result = resp.body;
+            } else {
+              if (Utils.isValidImageType(contentType)) {
+                try {
+                  const restoreImg = await Imager.restore(
+                    await resp.arrayBuffer(),
+                    contentType,
+                    Keys.IMG_SECRET
+                  );
+                  c.header("Content-Length", `${restoreImg.length}`);
+                  result = restoreImg;
+                } catch (_e: unknown) {
+                  throw new Error();
+                }
               }
             }
           }
-        }
-        c.header("Access-Control-Allow-Origin", "*");
-        return c.body(result);
-      })
-      .catch((e: ErrorType) =>
-        Guards.isKyError(e)
-          ? c.json({ error: e.response.statusText }, e.response.status)
-          : c.json(
-              { error: "Internal Server Error" },
-              HTTP_STATUS.INTERNAL_SERVER_ERROR
-            )
-      );
+          c.header("Access-Control-Allow-Origin", "*");
+          return c.body(result);
+        })
+        .catch((e: ErrorType) =>
+          Guards.isKyError(e)
+            ? c.json({ error: e.response.statusText }, e.response.status)
+            : c.json(
+                { error: "Internal Server Error" },
+                HTTP_STATUS.INTERNAL_SERVER_ERROR
+              )
+        );
+    }
   } catch (e) {
     return Guards.isKyError(e)
       ? c.json({ error: e.response.statusText }, e.response.status)
