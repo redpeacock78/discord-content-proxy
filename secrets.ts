@@ -17,6 +17,6 @@ const envs = KEY_NAMES.reduce(
   }
 );
 
-if (envs.errors.length > 0) throw new Error(envs.errors.join("\n"));
+if (envs.errors.length > 0) throw new Error(`\n${envs.errors.join("\n")}`);
 
 export const Keys = Object.freeze(envs.values);
