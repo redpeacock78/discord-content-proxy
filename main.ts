@@ -15,7 +15,6 @@ import {
   MAX_SEGMENT_SIZE,
 } from "./constants.ts";
 import { Schema, ErrorType } from "./types.ts";
-import { or } from "../../Library/Caches/deno/npm/registry.npmjs.org/ajv/8.17.1/dist/compile/codegen/index.d.ts";
 
 const app = new Hono();
 
