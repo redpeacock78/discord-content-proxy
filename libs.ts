@@ -1,7 +1,8 @@
-import { z } from "npm:zod";
 import ky from "npm:ky";
+import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
+import JSONCrush from "npm:jsoncrush";
 import fastJson from "npm:fast-json-stringify";
 import {
   createCanvas,
@@ -52,6 +53,18 @@ export const Crypto = {
 
 export const fJSON = {
   /**
+   * Compresses a given JSON string using JSON Crush.
+   * @param {string} input The JSON string to be compressed.
+   * @returns {string} The compressed JSON string.
+   */
+  crush: (input: string): string => JSONCrush.crush(input),
+  /**
+   * Uncrushes a JSON string that was previously crushed with JSONCrush.
+   * @param {string} input The crushed JSON string to be uncrushed.
+   * @returns {string} The uncrushed JSON string.
+   */
+  uncrush: (input: string): string => JSONCrush.uncrush(input),
+  /**
    * Stringifies an object to a JSON string according to the given schema.
    * @param {fastJson.Schema} schema The JSON schema to be used for stringification.
    * @param {TDoc} doc The object to be stringified.
@@ -61,6 +74,18 @@ export const fJSON = {
     schema: fastJson.Schema,
     doc: TDoc
   ): string => fastJson(schema)(doc),
+  /**
+   * Parses a given JSON string, trying to uncrush it if it fails as a normal JSON string.
+   * @param {string} input The JSON string to be parsed.
+   * @returns {Record<string, unknown>} The parsed object.
+   */
+  parse: (input: string): Record<string, unknown> => {
+    try {
+      return JSON.parse(input);
+    } catch {
+      return JSON.parse(fJSON.uncrush(input));
+    }
+  },
   /**
    * Derives a JSON schema from a given Zod schema.
    *
