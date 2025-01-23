@@ -11,10 +11,10 @@ import {
   BASE_URL,
   JSON_SCHEMA,
   HTTP_STATUS,
+  VALID_IMG_TYPES,
   MAX_SEGMENT_SIZE,
 } from "./constants.ts";
 import { Schema, ErrorType } from "./types.ts";
-import { VALID_IMG_TYPES } from "./constants.ts";
 
 const app = new Hono();
 
