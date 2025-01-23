@@ -3,6 +3,7 @@ import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import JSONCrush from "npm:jsoncrush";
+import { Env, Schema, Hono } from "npm:hono";
 import fastJson from "npm:fast-json-stringify";
 import {
   createCanvas,
@@ -399,3 +400,51 @@ export const Data = {
     }
   },
 };
+
+export class Api {
+  app: Hono<Env, Schema, "/">;
+  /**
+   * @param app The Hono app to use for the API.
+   */
+  constructor(app: Hono<Env, Schema, "/">) {
+    this.app = app;
+  }
+  /**
+   * Scrambles an image by calling the /scramble endpoint.
+   * @param data The image data to scramble.
+   * @param contentType The content type of the image.
+   * @param contentName The name of the image.
+   * @returns The scrambled image data.
+   */
+  async scranmle(data: ArrayBuffer, contentType: string, contentName: string) {
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([data], { type: contentType }),
+      contentName
+    );
+    const scranmbled = await this.app.request("/scramble", {
+      method: "POST",
+      body: formData,
+      headers: {},
+    });
+    return await scranmbled.arrayBuffer();
+  }
+  /**
+   * Generates a JSON object by calling the /generate endpoint.
+   * @param schema The schema of the JSON object.
+   * @param doc The document to generate the JSON object from.
+   * @returns The generated JSON object.
+   */
+  async generate<T extends z.ZodRawShape>(
+    schema: z.ZodObject<T>,
+    doc: Record<string, unknown>
+  ) {
+    const res = await this.app.request("/generate", {
+      method: "POST",
+      body: fJSON.stringify(fJSON.genSchema(schema), doc),
+      headers: new Headers({ "Content-Type": "application/json" }),
+    });
+    return await res.json();
+  }
+}
