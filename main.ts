@@ -1,6 +1,5 @@
 import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
-import JSONCrush from "npm:jsoncrush";
 import { fileTypeFromBuffer } from "npm:file-type";
 import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
@@ -73,7 +72,7 @@ app.post(
   ),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
     const json = c.req.valid("json");
-    const data = JSONCrush.crush(
+    const data = fJSON.crush(
       fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json)
     );
     const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
@@ -211,15 +210,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     );
     if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
       return c.json({ error: "Invalid digit" }, HTTP_STATUS.BAD_REQUEST);
-    const json = (() => {
-      try {
-        return JSON.parse(data) as z.infer<typeof JSON_SCHEMA>;
-      } catch {
-        return JSON.parse(JSONCrush.uncrush(data)) as z.infer<
-          typeof JSON_SCHEMA
-        >;
-      }
-    })();
+    const json = fJSON.parse(data) as z.infer<typeof JSON_SCHEMA>;
     if (!JSON_SCHEMA.safeParse(json).success)
       return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
     if (json.expiredAt) {
