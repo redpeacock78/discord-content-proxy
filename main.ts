@@ -4,7 +4,7 @@ import { fileTypeFromBuffer } from "npm:file-type";
 import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
-import { Crypto, fJSON, Imager, Data } from "./libs.ts";
+import { Crypto, fJSON, Imager, Data, Api } from "./libs.ts";
 import { Base64Url, Guards, Utils } from "./utils.ts";
 import {
   API_URL,
@@ -14,6 +14,7 @@ import {
   MAX_SEGMENT_SIZE,
 } from "./constants.ts";
 import { Schema, ErrorType } from "./types.ts";
+import { VALID_IMG_TYPES } from "./constants.ts";
 
 const app = new Hono();
 
@@ -84,6 +85,7 @@ app.post(
 );
 
 app.post("/upload", async (c: Context) => {
+  const api = new Api(app);
   const webhooks = [
     Keys.DISCORD_WEBHOOK_URL_1,
     Keys.DISCORD_WEBHOOK_URL_2,
@@ -93,9 +95,15 @@ app.post("/upload", async (c: Context) => {
   const file = body["file"] as File;
   if (typeof file !== "object")
     return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
-  const data = await file.arrayBuffer();
-  const contentType = (await fileTypeFromBuffer(data))?.mime ?? file.type;
-  const contentSize = file.size;
+  const buffer = await file.arrayBuffer();
+  const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
+  const isValiedImg = VALID_IMG_TYPES.includes(
+    contentType as (typeof VALID_IMG_TYPES)[number]
+  );
+  const data = isValiedImg
+    ? await api.scranmle(buffer, contentType, file.name)
+    : buffer;
+  const contentSize = data.byteLength;
   if (contentSize < 10485760) {
     const formData = new FormData();
     formData.append("file", new Blob([data], { type: contentType }), file.name);
@@ -116,12 +124,8 @@ app.post("/upload", async (c: Context) => {
         contentName: url.pathname.split("/")[4],
         originalFileName: file.name,
       };
-      const res = await app.request("/generate", {
-        method: "POST",
-        body: fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json),
-        headers: new Headers({ "Content-Type": "application/json" }),
-      });
-      return c.json(await res.json());
+      const res = await api.generate(JSON_SCHEMA, json);
+      return c.json(res);
     } catch (_e) {
       return c.json(
         { error: "Failed to upload file" },
@@ -189,12 +193,8 @@ app.post("/upload", async (c: Context) => {
       }
     }
     json.segments!.sort((a, b) => a.segmentIndex - b.segmentIndex);
-    const res = await app.request("/generate", {
-      method: "POST",
-      body: fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json),
-      headers: new Headers({ "Content-Type": "application/json" }),
-    });
-    return c.json(await res.json());
+    const res = await api.generate(JSON_SCHEMA, json);
+    return c.json(res);
   }
 });
 
