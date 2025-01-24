@@ -48,28 +48,21 @@ app.post("/scramble", async (c: Context) => {
 
 app.post(
   "/generate",
-  zValidator(
-    "json",
-    JSON_SCHEMA,
-    (
-      value,
-      c: Context<Env, string, Record<string | number | symbol, never>>
-    ) => {
-      const data: z.infer<typeof JSON_SCHEMA> | null = value.data;
-      if (!data)
-        return c.json({ error: "JSON is missing" }, HTTP_STATUS.BAD_REQUEST);
-      if (!JSON_SCHEMA.safeParse(data).success)
-        return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
-      if (data.expiredAt) {
-        if (isNaN(Number(data.expiredAt)))
-          return c.json(
-            { error: "Invalid expiredAt format" },
-            HTTP_STATUS.BAD_REQUEST
-          );
-      }
-      return data;
+  zValidator("json", JSON_SCHEMA, (value, c: Context<Env, string>) => {
+    const data: z.infer<typeof JSON_SCHEMA> | null = value.data;
+    if (!data)
+      return c.json({ error: "JSON is missing" }, HTTP_STATUS.BAD_REQUEST);
+    if (!JSON_SCHEMA.safeParse(data).success)
+      return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
+    if (data.expiredAt) {
+      if (isNaN(Number(data.expiredAt)))
+        return c.json(
+          { error: "Invalid expiredAt format" },
+          HTTP_STATUS.BAD_REQUEST
+        );
     }
-  ),
+    return data;
+  }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
     const json = c.req.valid("json");
     const data = fJSON.crush(
