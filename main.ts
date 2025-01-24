@@ -97,10 +97,7 @@ app.post("/upload", async (c: Context) => {
     return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
   const buffer = await file.arrayBuffer();
   const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
-  const isValiedImg = VALID_IMG_TYPES.includes(
-    contentType as (typeof VALID_IMG_TYPES)[number]
-  );
-  const data = isValiedImg
+  const data = Utils.isValidImageType(contentType)
     ? await api.scranmle(buffer, contentType, file.name)
     : buffer;
   const contentSize = data.byteLength;
