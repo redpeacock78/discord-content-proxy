@@ -182,7 +182,6 @@ app.post("/upload", async (c: Context) => {
       }
     }
     json.segments!.sort((a, b) => a.segmentIndex - b.segmentIndex);
-    console.log(json);
     const res = await api.generate(JSON_SCHEMA, json);
     return c.json(res);
   }
