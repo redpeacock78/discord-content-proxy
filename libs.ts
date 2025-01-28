@@ -3,6 +3,7 @@ import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import JSONCrush from "npm:jsoncrush";
+import fnv1a from "npm:@sindresorhus/fnv1a";
 import { Env, Schema, Hono } from "npm:hono";
 import fastJson from "npm:fast-json-stringify";
 import {
@@ -11,7 +12,7 @@ import {
   EmulatedCanvas2D,
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
-import { Utils } from "./utils.ts";
+import { Utils, Base62 } from "./utils.ts";
 import {
   DIVISOR_TARGET,
   VALID_IMG_TYPES,
@@ -50,6 +51,16 @@ export const Crypto = {
    * @returns {string} The hash string.
    */
   genHash: (data: string): string => crypto.MD5(data).toString(),
+  /**
+   * Calculates the FNV-1a hash for the given data.
+   * @param {string|Uint8Array} data The data to be hashed.
+   * @param {number} [size=32] The bit size of the hash. Must be one of 32, 64, 128, 256, 512, or 1024.
+   * @returns {bigint} The hash value.
+   */
+  fnv1a: (
+    data: string | Uint8Array,
+    size?: 32 | 64 | 128 | 256 | 512 | 1024
+  ): bigint => fnv1a(data, { size: size }),
 };
 
 export const fJSON = {
@@ -376,7 +387,11 @@ export const Data = {
   ) => {
     try {
       const formData = new FormData();
-      formData.append("file", new Blob([data]));
+      formData.append(
+        "file",
+        new Blob([data]),
+        Base62.encode(Crypto.fnv1a(data, 64))
+      );
       const options = {
         body: formData,
         headers: {},
@@ -386,8 +401,8 @@ export const Data = {
         (response as { attachments: [{ url: string }] }).attachments[0].url
       );
       const pathname = url.pathname;
-      const channelId = pathname.split("/")[2];
-      const messageId = pathname.split("/")[3];
+      const channelId = Base62.encode(BigInt(pathname.split("/")[2]));
+      const messageId = Base62.encode(BigInt(pathname.split("/")[3]));
       const contentName = pathname.split("/")[4];
       json.segments!.push({
         channelId,
@@ -416,7 +431,7 @@ export class Api {
    * @param contentName The name of the image.
    * @returns The scrambled image data.
    */
-  async scranmle(data: ArrayBuffer, contentType: string, contentName: string) {
+  async scramble(data: ArrayBuffer, contentType: string, contentName: string) {
     const formData = new FormData();
     formData.append(
       "file",
