@@ -5,7 +5,7 @@ import { Context, Env, Hono } from "npm:hono";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Crypto, fJSON, Imager, Data, Api } from "./libs.ts";
-import { Base64Url, Guards, Utils } from "./utils.ts";
+import { Base64Url, Guards, Utils, Base62 } from "./utils.ts";
 import {
   API_URL,
   BASE_URL,
@@ -16,6 +16,7 @@ import {
 import { Schema, ErrorType } from "./types.ts";
 
 const app = new Hono();
+const api = new Api(app);
 
 app.post("/scramble", async (c: Context) => {
   const body = await c.req.parseBody();
@@ -68,6 +69,7 @@ app.post(
     const data = fJSON.crush(
       fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json)
     );
+    console.log(data);
     const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
     const encrypted: string = Base64Url.encode(
       Crypto.encrypt(data, Keys.CRYPTO_KEY)
@@ -77,7 +79,6 @@ app.post(
 );
 
 app.post("/upload", async (c: Context) => {
-  const api = new Api(app);
   const webhooks = [
     Keys.DISCORD_WEBHOOK_URL_1,
     Keys.DISCORD_WEBHOOK_URL_2,
@@ -90,7 +91,7 @@ app.post("/upload", async (c: Context) => {
   const buffer = await file.arrayBuffer();
   const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
   const data = Utils.isValidImageType(contentType)
-    ? await api.scranmle(buffer, contentType, file.name)
+    ? await api.scramble(buffer, contentType, file.name)
     : buffer;
   const contentSize = data.byteLength;
   if (contentSize < 10485760) {
@@ -108,8 +109,8 @@ app.post("/upload", async (c: Context) => {
         (response as { attachments: [{ url: string }] }).attachments[0].url
       );
       const json = {
-        channelId: url.pathname.split("/")[2],
-        messageId: url.pathname.split("/")[3],
+        channelId: Base62.encode(BigInt(url.pathname.split("/")[2])),
+        messageId: Base62.encode(BigInt(url.pathname.split("/")[3])),
         contentName: url.pathname.split("/")[4],
         originalFileName: file.name,
       };
@@ -182,6 +183,7 @@ app.post("/upload", async (c: Context) => {
       }
     }
     json.segments!.sort((a, b) => a.segmentIndex - b.segmentIndex);
+    console.log(json);
     const res = await api.generate(JSON_SCHEMA, json);
     return c.json(res);
   }
@@ -216,7 +218,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     if (json.segments) {
       const buffers: Uint8Array[] = [];
       for (const segment of json.segments) {
-        contentUrl.pathname = `/attachments/${segment.channelId}/${segment.messageId}/${segment.contentName}`;
+        const channelId = Utils.idDecode(segment.channelId);
+        const messageId = Utils.idDecode(segment.messageId);
+        contentUrl.pathname = `/attachments/${channelId}/${messageId}/${segment.contentName}`;
         const postData = {
           attachment_urls: [contentUrl],
         };
@@ -262,7 +266,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       );
       return c.body(resultBuffer);
     } else {
-      contentUrl.pathname = `/attachments/${json.channelId}/${json.messageId}/${json.contentName}`;
+      const channelId = Utils.idDecode(json.channelId!);
+      const messageId = Utils.idDecode(json.messageId!);
+      contentUrl.pathname = `/attachments/${channelId}/${messageId}/${json.contentName}`;
       const postData = {
         attachment_urls: [contentUrl],
       };
