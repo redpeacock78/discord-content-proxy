@@ -1,6 +1,46 @@
 import { VALID_IMG_TYPES } from "./constants.ts";
 import { KyError, ErrorType } from "./types.ts";
 
+export class Base62 {
+  private static chars =
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  /**
+   * Encodes a numeric value into a Base62 encoded string.
+   *
+   * @param num - The numeric value to be encoded as a bigint.
+   * @returns The Base62 encoded string representation of the input number.
+   */
+  public static encode(num: bigint): string {
+    let number = num;
+    const base = BigInt(this.chars.length);
+    let str = "";
+    while (true) {
+      str = `${[...this.chars][Number(number % base)]}${str}`;
+      number = number / base;
+      if (number === 0n) break;
+    }
+    return str;
+  }
+  /**
+   * Decodes a Base62 encoded string back to a numeric string representation.
+   *
+   * @param str - The Base62 encoded string to be decoded.
+   * @returns The decoded numeric string.
+   * @throws An error if the result is "0", indicating an invalid or empty input.
+   */
+  public static decord(str: string): string {
+    const base = BigInt(this.chars.length);
+    let num = 0n;
+    for (const char of [...str]) {
+      if ([...this.chars].indexOf(char) === -1) break;
+      num = num * base + BigInt([...this.chars].indexOf(char));
+    }
+    const result = num.toString();
+    if (result === "0") throw new Error();
+    return result;
+  }
+}
+
 export const Base64Url = {
   /**
    * Encodes a string using Base64url.
@@ -73,5 +113,22 @@ export const Utils = {
     type: string
   ): type is (typeof VALID_IMG_TYPES)[number] => {
     return VALID_IMG_TYPES.includes(type as (typeof VALID_IMG_TYPES)[number]);
+  },
+  /**
+   * Decodes a given Discord ID or a Base62 encoded ID back to its original string
+   * representation.
+   * @param id - The Discord ID or Base62 encoded string to decode.
+   * @returns The decoded string.
+   * @example
+   * idDecode("123456789012345678"); // => "123456789012345678"
+   * idDecode("5t5ZJq"); // => "123456789012345678"
+   */
+  idDecode: (id: string): string => {
+    try {
+      BigInt(id);
+      return id;
+    } catch {
+      return Base62.decord(id);
+    }
   },
 };
