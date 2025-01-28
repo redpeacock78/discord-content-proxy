@@ -69,7 +69,6 @@ app.post(
     const data = fJSON.crush(
       fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json)
     );
-    console.log(data);
     const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
     const encrypted: string = Base64Url.encode(
       Crypto.encrypt(data, Keys.CRYPTO_KEY)
