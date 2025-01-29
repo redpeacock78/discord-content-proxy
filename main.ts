@@ -115,7 +115,8 @@ app.post("/upload", async (c: Context) => {
       };
       const res = await api.generate(JSON_SCHEMA, json);
       return c.json(res);
-    } catch (_e) {
+    } catch (e) {
+      console.error(e);
       return c.json(
         { error: "Failed to upload file" },
         HTTP_STATUS.BAD_REQUEST
