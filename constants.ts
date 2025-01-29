@@ -1,5 +1,5 @@
 import { z } from "npm:zod";
-import StatusCode from "npm:hono/utils";
+import { ContentfulStatusCode } from "./types.ts";
 
 export const BASE_URL = new URL("https://cdn.discordapp.com");
 export const API_URL = new URL(
@@ -47,5 +47,5 @@ export const HTTP_STATUS = {
   NOT_FOUND: 404,
   INTERNAL_SERVER_ERROR: 500,
 } as const satisfies {
-  [key: string]: StatusCode;
+  [key: string]: ContentfulStatusCode;
 };
