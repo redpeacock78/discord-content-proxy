@@ -11,6 +11,7 @@ import {
   BASE_URL,
   JSON_SCHEMA,
   HTTP_STATUS,
+  MAX_UPLOAD_SIZE,
   MAX_SEGMENT_SIZE,
 } from "./constants.ts";
 import { Schema, ErrorType } from "./types.ts";
@@ -93,7 +94,7 @@ app.post("/upload", async (c: Context) => {
     ? await api.scramble(buffer, contentType, file.name)
     : buffer;
   const contentSize = data.byteLength;
-  if (contentSize < 10485760) {
+  if (contentSize < MAX_UPLOAD_SIZE) {
     const formData = new FormData();
     formData.append("file", new Blob([data], { type: contentType }), file.name);
     const options = {
@@ -214,6 +215,28 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       if (currentTime > expiredAt)
         return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
     }
+    const cache = await caches.open("img-cache");
+    const cachedResponse = await cache.match(c.req.url);
+    if (cachedResponse) {
+      const mimeType = cachedResponse.headers.get("content-type") ?? "";
+      if (Utils.isValidImageType(mimeType)) {
+        return await Imager.restore(
+          await cachedResponse.arrayBuffer(),
+          mimeType,
+          Keys.IMG_SECRET
+        ).then((i) => {
+          const type = cachedResponse.headers.get("Content-Type");
+          const status = cachedResponse.headers.get("Cache-Status");
+          const length = cachedResponse.headers.get("Content-Length");
+          const disposition = cachedResponse.headers.get("Content-Disposition");
+          if (type) c.header("Content-Type", type);
+          if (status) c.header("Cache-Status", status);
+          if (length) c.header("Content-Length", length);
+          if (disposition) c.header("Content-Disposition", disposition);
+          return c.body(i);
+        });
+      }
+    }
     if (json.segments) {
       const buffers: Uint8Array[] = [];
       for (const segment of json.segments) {
@@ -263,6 +286,18 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         "Content-Disposition",
         `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
       );
+      c.header("Cache-Status", "MISS");
+      if (isImage) {
+        const init = {
+          headers: {
+            "Content-Length": `${resultBuffer.length}`,
+            "Content-Type": `${json.contentType}`,
+            "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+            "Cache-Status": "HIT",
+          },
+        };
+        cache.put(c.req.url, new Response(resultBuffer, init));
+      }
       return c.body(resultBuffer);
     } else {
       const channelId = Utils.idDecode(json.channelId!);
@@ -308,12 +343,23 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             } else {
               if (Utils.isValidImageType(contentType)) {
                 try {
+                  const imgBuffer = await resp.arrayBuffer();
                   const restoreImg = await Imager.restore(
-                    await resp.arrayBuffer(),
+                    imgBuffer,
                     contentType,
                     Keys.IMG_SECRET
                   );
+                  const init = {
+                    headers: {
+                      "Content-Length": `${restoreImg.length}`,
+                      "Content-Type": `${contentType}`,
+                      "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+                      "Cache-Status": "HIT",
+                    },
+                  };
+                  cache.put(c.req.url, new Response(imgBuffer, init));
                   c.header("Content-Length", `${restoreImg.length}`);
+                  c.header("Cache-Status", "MISS");
                   result = restoreImg;
                 } catch (_e: unknown) {
                   throw new Error();
@@ -334,8 +380,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         );
     }
   } catch (e) {
-    return Guards.isKyError(e)
-      ? c.json({ error: e.response.statusText }, e.response.status)
+    const error = e as ErrorType;
+    return Guards.isKyError(error)
+      ? c.json({ error: error.response.statusText }, error.response.status)
       : c.json(
           { error: "Internal Server Error" },
           HTTP_STATUS.INTERNAL_SERVER_ERROR
