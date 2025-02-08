@@ -6,6 +6,7 @@ export const API_URL = new URL(
   "https://discord.com/api/v9/attachments/refresh-urls"
 );
 export const DIVISOR_TARGET = 50;
+export const MAX_UPLOAD_SIZE = 10485760; // 10MB
 export const MAX_SEGMENT_SIZE = 9437184; // 9MB
 export const KEY_NAMES = [
   "DIGIT_KEY",
