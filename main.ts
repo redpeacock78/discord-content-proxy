@@ -229,10 +229,21 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           const status = cachedResponse.headers.get("Cache-Status");
           const length = cachedResponse.headers.get("Content-Length");
           const disposition = cachedResponse.headers.get("Content-Disposition");
+          const isImage: boolean = (type ?? "").startsWith("image/");
+          const isVideo: boolean = (type ?? "").startsWith("video/");
+          const isMedia: boolean = isImage || isVideo;
+          const behavior: string = isMedia ? "inline" : "attachment";
+          const fileName = encodeURIComponent(
+            json.originalFileName ?? json.contentName!
+          );
           c.header("Content-Type", type ?? "");
           c.header("Cache-Status", status ?? "");
-          c.header("Content-Length", length ?? "");
-          c.header("Content-Disposition", disposition ?? "");
+          c.header("Content-Length", length ?? "HIT");
+          c.header(
+            "Content-Disposition",
+            disposition ??
+              `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+          );
           return c.body(i);
         });
       }
