@@ -229,10 +229,10 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           const status = cachedResponse.headers.get("Cache-Status");
           const length = cachedResponse.headers.get("Content-Length");
           const disposition = cachedResponse.headers.get("Content-Disposition");
-          if (type) c.header("Content-Type", type);
-          if (status) c.header("Cache-Status", status);
-          if (length) c.header("Content-Length", length);
-          if (disposition) c.header("Content-Disposition", disposition);
+          c.header("Content-Type", type ?? "");
+          c.header("Cache-Status", status ?? "");
+          c.header("Content-Length", length ?? "");
+          c.header("Content-Disposition", disposition ?? "");
           return c.body(i);
         });
       }
