@@ -215,39 +215,39 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       if (currentTime > expiredAt)
         return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
     }
-    const cache = await caches.open("img-cache");
-    const cachedResponse = await cache.match(c.req.url);
-    if (cachedResponse) {
-      const mimeType = cachedResponse.headers.get("content-type") ?? "";
-      if (Utils.isValidImageType(mimeType)) {
-        return await Imager.restore(
-          await cachedResponse.arrayBuffer(),
-          mimeType,
-          Keys.IMG_SECRET
-        ).then((i) => {
-          const type = cachedResponse.headers.get("Content-Type");
-          const status = cachedResponse.headers.get("Cache-Status");
-          const length = cachedResponse.headers.get("Content-Length");
-          const disposition = cachedResponse.headers.get("Content-Disposition");
-          const isImage: boolean = (type ?? "").startsWith("image/");
-          const isVideo: boolean = (type ?? "").startsWith("video/");
-          const isMedia: boolean = isImage || isVideo;
-          const behavior: string = isMedia ? "inline" : "attachment";
-          const fileName = encodeURIComponent(
-            json.originalFileName ?? json.contentName!
-          );
-          c.header("Content-Type", type ?? "");
-          c.header("Cache-Status", status ?? "HIT");
-          c.header("Content-Length", length ?? "");
-          c.header(
-            "Content-Disposition",
-            disposition ??
-              `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
-          );
-          return c.body(i);
-        });
-      }
-    }
+    // const cache = await caches.open("img-cache");
+    // const cachedResponse = await cache.match(c.req.url);
+    // if (cachedResponse) {
+    //   const mimeType = cachedResponse.headers.get("content-type") ?? "";
+    //   if (Utils.isValidImageType(mimeType)) {
+    //     return await Imager.restore(
+    //       await cachedResponse.arrayBuffer(),
+    //       mimeType,
+    //       Keys.IMG_SECRET
+    //     ).then((i) => {
+    //       const type = cachedResponse.headers.get("Content-Type");
+    //       const status = cachedResponse.headers.get("Cache-Status");
+    //       const length = cachedResponse.headers.get("Content-Length");
+    //       const disposition = cachedResponse.headers.get("Content-Disposition");
+    //       const isImage: boolean = (type ?? "").startsWith("image/");
+    //       const isVideo: boolean = (type ?? "").startsWith("video/");
+    //       const isMedia: boolean = isImage || isVideo;
+    //       const behavior: string = isMedia ? "inline" : "attachment";
+    //       const fileName = encodeURIComponent(
+    //         json.originalFileName ?? json.contentName!
+    //       );
+    //       c.header("Content-Type", type ?? "");
+    //       c.header("Cache-Status", status ?? "HIT");
+    //       c.header("Content-Length", length ?? "");
+    //       c.header(
+    //         "Content-Disposition",
+    //         disposition ??
+    //           `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+    //       );
+    //       return c.body(i);
+    //     });
+    //   }
+    // }
     if (json.segments) {
       const buffers: Uint8Array[] = [];
       for (const segment of json.segments) {
@@ -298,17 +298,17 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
       );
       c.header("Cache-Status", "MISS");
-      if (isImage) {
-        const init = {
-          headers: {
-            "Content-Length": `${resultBuffer.length}`,
-            "Content-Type": `${json.contentType}`,
-            "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
-            "Cache-Status": "HIT",
-          },
-        };
-        cache.put(c.req.url, new Response(resultBuffer, init));
-      }
+      // if (isImage) {
+      //   const init = {
+      //     headers: {
+      //       "Content-Length": `${resultBuffer.length}`,
+      //       "Content-Type": `${json.contentType}`,
+      //       "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+      //       "Cache-Status": "HIT",
+      //     },
+      //   };
+      //   cache.put(c.req.url, new Response(resultBuffer, init));
+      // }
       return c.body(resultBuffer);
     } else {
       const channelId = Utils.idDecode(json.channelId!);
@@ -359,18 +359,18 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
                     contentType,
                     Keys.IMG_SECRET
                   );
-                  const init = {
-                    headers: {
-                      "Content-Length": `${restoreImg.length}`,
-                      "Content-Type": `${contentType}`,
-                      "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
-                      "Cache-Status": "HIT",
-                    },
-                  };
-                  cache.put(
-                    c.req.url,
-                    new Response(await resp.arrayBuffer(), init)
-                  );
+                  // const init = {
+                  //   headers: {
+                  //     "Content-Length": `${restoreImg.length}`,
+                  //     "Content-Type": `${contentType}`,
+                  //     "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+                  //     "Cache-Status": "HIT",
+                  //   },
+                  // };
+                  // cache.put(
+                  //   c.req.url,
+                  //   new Response(await resp.arrayBuffer(), init)
+                  // );
                   c.header("Content-Length", `${restoreImg.length}`);
                   c.header("Cache-Status", "MISS");
                   result = restoreImg;
