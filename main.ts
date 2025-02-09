@@ -216,7 +216,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
     }
     const cache = await caches.open("img-cache");
-    cache.delete(c.req.url);
+    await cache.delete(c.req.url);
     const cachedResponse = await cache.match(c.req.url);
     if (cachedResponse) {
       const mimeType = cachedResponse.headers.get("content-type") ?? "";
