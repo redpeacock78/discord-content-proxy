@@ -237,8 +237,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             json.originalFileName ?? json.contentName!
           );
           c.header("Content-Type", type ?? "");
-          c.header("Cache-Status", status ?? "");
-          c.header("Content-Length", length ?? "HIT");
+          c.header("Cache-Status", status ?? "HIT");
+          c.header("Content-Length", length ?? "");
           c.header(
             "Content-Disposition",
             disposition ??
