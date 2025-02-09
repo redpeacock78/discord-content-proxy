@@ -216,6 +216,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
     }
     const cache = await caches.open("img-cache");
+    cache.delete(c.req.url);
     const cachedResponse = await cache.match(c.req.url);
     if (cachedResponse) {
       const mimeType = cachedResponse.headers.get("content-type") ?? "";
@@ -354,9 +355,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             } else {
               if (Utils.isValidImageType(contentType)) {
                 try {
-                  const imgBuffer = await resp.arrayBuffer();
                   const restoreImg = await Imager.restore(
-                    imgBuffer,
+                    await resp.arrayBuffer(),
                     contentType,
                     Keys.IMG_SECRET
                   );
@@ -368,7 +368,10 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
                       "Cache-Status": "HIT",
                     },
                   };
-                  cache.put(c.req.url, new Response(imgBuffer, init));
+                  cache.put(
+                    c.req.url,
+                    new Response(await resp.arrayBuffer(), init)
+                  );
                   c.header("Content-Length", `${restoreImg.length}`);
                   c.header("Cache-Status", "MISS");
                   result = restoreImg;
