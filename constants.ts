@@ -8,6 +8,7 @@ export const API_URL = new URL(
 export const DIVISOR_TARGET = 50;
 export const MAX_UPLOAD_SIZE = 10485760; // 10MB
 export const MAX_SEGMENT_SIZE = 9437184; // 9MB
+export const CACHE_AGE = 315360000; // 10 years
 export const KEY_NAMES = [
   "DIGIT_KEY",
   "CRYPTO_KEY",
