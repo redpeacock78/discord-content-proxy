@@ -9,6 +9,7 @@ import { Base64Url, Guards, Utils, Base62 } from "./utils.ts";
 import {
   API_URL,
   BASE_URL,
+  CACHE_AGE,
   JSON_SCHEMA,
   HTTP_STATUS,
   MAX_UPLOAD_SIZE,
@@ -294,6 +295,10 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         json.originalFileName ?? json.contentName!
       );
       c.header(
+        "Cache-Control",
+        `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
+      );
+      c.header(
         "Content-Disposition",
         `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
       );
@@ -344,6 +349,10 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             const behavior: string = isMedia ? "inline" : "attachment";
             const fileName = encodeURIComponent(
               json.originalFileName ?? json.contentName!
+            );
+            c.header(
+              "Cache-Control",
+              `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
             );
             c.header(
               "Content-Disposition",
