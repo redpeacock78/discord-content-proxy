@@ -454,24 +454,18 @@ export class Api {
    * @returns The scrambled image data.
    */
   async scramble(data: ArrayBuffer, contentType: string, contentName: string) {
-    let formData = new FormData();
+    const formData = new FormData();
     formData.append(
       "file",
       new Blob([data], { type: contentType }),
       contentName
     );
-    let scranmbled = await this.app.request("/scramble", {
+    const scranmbled = await this.app.request("/scramble", {
       method: "POST",
       body: formData as any,
       headers: {},
     });
-    const result = await scranmbled.arrayBuffer();
-
-    (formData as any) = null;
-    (scranmbled as any) = null;
-    setTimeout(() => {}, 0);
-
-    return result;
+    return await scranmbled.arrayBuffer();
   }
   /**
    * Generates a JSON object by calling the /generate endpoint.
