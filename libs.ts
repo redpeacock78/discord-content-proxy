@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import ky from "npm:ky";
 import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
@@ -271,16 +272,27 @@ export const Imager = {
       }
     }
 
+    let result: Uint8Array;
     if (mimeType === IMG_TYPES.JPG) {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
-        return await decodeImg.encodeJPEG();
+        result = await decodeImg.encodeJPEG();
       } catch (e) {
         throw new Error(`Failed to encode JPEG: ${e}`);
       }
     } else {
-      return outputCanvas.toBuffer();
+      result = outputCanvas.toBuffer();
     }
+
+    for (const key in blocks) {
+      (blocks[key] as any) = null;
+    }
+    (image as any) = null;
+    (outputCanvas as any) = null;
+    (outputCtx as any) = null;
+    setTimeout(() => {}, 0);
+
+    return result;
   },
   /**
    * Restores a randomly shuffled image back to its original state.
@@ -357,16 +369,25 @@ export const Imager = {
       );
     }
 
+    let result: Uint8Array;
     if (mimeType === IMG_TYPES.JPG) {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
-        return await decodeImg.encodeJPEG();
+        result = await decodeImg.encodeJPEG();
       } catch (e) {
         throw new Error(`Failed to encode JPEG: ${e}`);
       }
     } else {
-      return outputCanvas.toBuffer();
+      result = outputCanvas.toBuffer();
     }
+
+    (keyArray as any) = null;
+    (image as any) = null;
+    (outputCanvas as any) = null;
+    (ctx as any) = null;
+    setTimeout(() => {}, 0);
+
+    return result;
   },
 };
 
@@ -441,11 +462,16 @@ export class Api {
     );
     const scranmbled = await this.app.request("/scramble", {
       method: "POST",
-      // deno-lint-ignore no-explicit-any
       body: formData as any,
       headers: {},
     });
-    return await scranmbled.arrayBuffer();
+    const result = await scranmbled.arrayBuffer();
+
+    (formData as any) = null;
+    (scranmbled as any) = null;
+    setTimeout(() => {}, 0);
+
+    return result;
   }
   /**
    * Generates a JSON object by calling the /generate endpoint.
