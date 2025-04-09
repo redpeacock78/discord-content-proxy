@@ -1,4 +1,4 @@
-// deno-lint-ignore-file no-explicit-any
+// deno-lint-ignore-file no-explicit-any prefer-const
 import ky from "npm:ky";
 import { z } from "npm:zod";
 // @ts-types="npm:@types/crypto-js"
@@ -454,13 +454,13 @@ export class Api {
    * @returns The scrambled image data.
    */
   async scramble(data: ArrayBuffer, contentType: string, contentName: string) {
-    const formData = new FormData();
+    let formData = new FormData();
     formData.append(
       "file",
       new Blob([data], { type: contentType }),
       contentName
     );
-    const scranmbled = await this.app.request("/scramble", {
+    let scranmbled = await this.app.request("/scramble", {
       method: "POST",
       body: formData as any,
       headers: {},
