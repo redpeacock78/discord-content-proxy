@@ -15,7 +15,7 @@ import {
   MAX_UPLOAD_SIZE,
   MAX_SEGMENT_SIZE,
 } from "./constants.ts";
-import { Schema, ErrorType } from "./types.ts";
+import { Schema, KyOptions, ErrorType } from "./types.ts";
 
 const app = new Hono();
 const api = new Api(app);
@@ -39,7 +39,9 @@ app.post("/scramble", async (c: Context) => {
     .then((i: Uint8Array) => {
       c.header("Content-Length", `${i.length}`);
       c.header("Content-Type", contentType);
-      return c.body(i);
+      const data = new ArrayBuffer(i.length);
+      new Uint8Array(data).set(i);
+      return c.body(data);
     })
     .catch((_e: unknown) =>
       c.json(
@@ -64,7 +66,7 @@ app.post(
           HTTP_STATUS.BAD_REQUEST
         );
     }
-    return data;
+    return;
   }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
     const json = c.req.valid("json");
@@ -91,21 +93,23 @@ app.post("/upload", async (c: Context) => {
     return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
   const buffer = await file.arrayBuffer();
   const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
+  const isImage: boolean = contentType.startsWith("image/");
+  const isVideo: boolean = contentType.startsWith("video/");
+  const isMedia: boolean = isImage || isVideo;
   const data = Utils.isValidImageType(contentType)
     ? await api.scramble(buffer, contentType, file.name)
     : buffer;
   const contentSize = data.byteLength;
-  if (contentSize < MAX_UPLOAD_SIZE) {
+  if (contentSize < MAX_UPLOAD_SIZE && !isMedia) {
     const formData = new FormData();
     formData.append("file", new Blob([data], { type: contentType }), file.name);
-    const options = {
+    const options: KyOptions = {
       body: formData,
       headers: {},
     };
     try {
-      const response = await ky
-        .post(webhooks[Math.floor(Math.random() * webhooks.length)], options)
-        .json();
+      const webhookUrl = webhooks[Math.floor(Math.random() * webhooks.length)];
+      const response = await ky.post(webhookUrl, options).json();
       const url = new URL(
         (response as { attachments: [{ url: string }] }).attachments[0].url
       );
@@ -130,12 +134,16 @@ app.post("/upload", async (c: Context) => {
       contentType: contentType,
       segments: [],
     };
+    const dynamicSegmentSize =
+      contentSize < MAX_UPLOAD_SIZE
+        ? Math.floor(contentSize / 2)
+        : MAX_SEGMENT_SIZE;
     const stream = file.stream();
     const reader = stream.getReader();
     let index = 0;
     let uploadedSize = 0;
-    const segmentBuffer = new Uint8Array(MAX_SEGMENT_SIZE);
-    while (uploadedSize < contentSize) {
+    const segmentBuffer = new Uint8Array(dynamicSegmentSize);
+    while (dynamicSegmentSize < contentSize) {
       const { value, done } = await reader.read();
       if (done) break;
       let offset = 0;
@@ -314,7 +322,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       //   };
       //   cache.put(c.req.url, new Response(resultBuffer, init));
       // }
-      return c.body(resultBuffer);
+      return c.body(resultBuffer.buffer);
     } else {
       const channelId = Utils.idDecode(json.channelId!);
       const messageId = Utils.idDecode(json.messageId!);
@@ -335,9 +343,11 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         .then(async (resp: KyResponse): Promise<Response> => {
           if (!resp.body)
             return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
-          let result: Uint8Array | ReadableStream<Uint8Array> = new Uint8Array(
-            0
-          );
+          let result: ReadableStream<Uint8Array> = new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          });
           const contentType = resp.headers.get("content-type");
           const contentLength = resp.headers.get("content-length");
           if (contentLength) c.header("Content-Length", contentLength);
@@ -382,7 +392,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
                   // );
                   c.header("Content-Length", `${restoreImg.length}`);
                   c.header("Cache-Status", "MISS");
-                  result = restoreImg;
+                  result = new Response(restoreImg).body!;
                 } catch (_e: unknown) {
                   throw new Error();
                 }
