@@ -142,7 +142,7 @@ app.post("/upload", async (c: Context) => {
     const reader = stream.getReader();
     let index = 0;
     let uploadedSize = 0;
-    const segmentBuffer = new Uint8Array(dynamicSegmentSize);
+    let segmentBuffer = new Uint8Array(dynamicSegmentSize);
     while (uploadedSize < contentSize) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -185,6 +185,8 @@ app.post("/upload", async (c: Context) => {
           json.segments!.length,
           webhooks[Math.floor(Math.random() * webhooks.length)]
         );
+        segmentBuffer = new Uint8Array(0);
+        index = 0;
       } catch (_e) {
         return c.json(
           { error: "Failed to upload segment" },
