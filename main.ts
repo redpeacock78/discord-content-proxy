@@ -143,13 +143,13 @@ app.post("/upload", async (c: Context) => {
     let index = 0;
     let uploadedSize = 0;
     const segmentBuffer = new Uint8Array(dynamicSegmentSize);
-    while (dynamicSegmentSize < contentSize) {
+    while (uploadedSize < contentSize) {
       const { value, done } = await reader.read();
       if (done) break;
       let offset = 0;
       while (offset < value!.byteLength) {
         const chunkSize = Math.min(
-          MAX_SEGMENT_SIZE - index,
+          dynamicSegmentSize - index,
           value!.byteLength - offset
         );
         // Copy data into the segment buffer
@@ -157,7 +157,7 @@ app.post("/upload", async (c: Context) => {
         index += chunkSize;
         offset += chunkSize;
         // If segment is full, upload it
-        if (index === MAX_SEGMENT_SIZE) {
+        if (index === dynamicSegmentSize) {
           try {
             await Data.uploadSegment(
               segmentBuffer,
