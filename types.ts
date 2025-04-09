@@ -1,4 +1,5 @@
 import { z } from "npm:zod";
+import { Options } from "npm:ky";
 import { JSON_SCHEMA } from "./constants.ts";
 
 export type InfoStatusCode = 100 | 101 | 102 | 103;
@@ -89,6 +90,11 @@ export type BuildSchemaProps = {
   [key in keyof typeof JSON_SCHEMA.shape]: {
     type: string;
   };
+};
+
+export type KyOptions = Omit<Options, "body"> & {
+  // deno-lint-ignore no-explicit-any
+  body: any;
 };
 
 export type KyError = {
