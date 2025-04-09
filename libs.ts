@@ -19,6 +19,7 @@ import {
   IMG_TYPES,
   JSON_SCHEMA,
 } from "./constants.ts";
+import { KyOptions } from "./types.ts";
 
 export const Crypto = {
   /**
@@ -392,7 +393,7 @@ export const Data = {
         new Blob([data]),
         Base62.encode(Crypto.fnv1a(data, 64))
       );
-      const options = {
+      const options: KyOptions = {
         body: formData,
         headers: {},
       };
@@ -440,7 +441,8 @@ export class Api {
     );
     const scranmbled = await this.app.request("/scramble", {
       method: "POST",
-      body: formData,
+      // deno-lint-ignore no-explicit-any
+      body: formData as any,
       headers: {},
     });
     return await scranmbled.arrayBuffer();
