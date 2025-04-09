@@ -272,27 +272,16 @@ export const Imager = {
       }
     }
 
-    let result: Uint8Array;
     if (mimeType === IMG_TYPES.JPG) {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
-        result = await decodeImg.encodeJPEG();
+        return await decodeImg.encodeJPEG();
       } catch (e) {
         throw new Error(`Failed to encode JPEG: ${e}`);
       }
     } else {
-      result = outputCanvas.toBuffer();
+      return outputCanvas.toBuffer();
     }
-
-    for (const key in blocks) {
-      (blocks[key] as any) = null;
-    }
-    (image as any) = null;
-    (outputCanvas as any) = null;
-    (outputCtx as any) = null;
-    setTimeout(() => {}, 0);
-
-    return result;
   },
   /**
    * Restores a randomly shuffled image back to its original state.
@@ -369,25 +358,16 @@ export const Imager = {
       );
     }
 
-    let result: Uint8Array;
     if (mimeType === IMG_TYPES.JPG) {
       try {
         const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
-        result = await decodeImg.encodeJPEG();
+        return await decodeImg.encodeJPEG();
       } catch (e) {
         throw new Error(`Failed to encode JPEG: ${e}`);
       }
     } else {
-      result = outputCanvas.toBuffer();
+      return outputCanvas.toBuffer();
     }
-
-    (keyArray as any) = null;
-    (image as any) = null;
-    (outputCanvas as any) = null;
-    (ctx as any) = null;
-    setTimeout(() => {}, 0);
-
-    return result;
   },
 };
 
