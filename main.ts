@@ -95,7 +95,8 @@ app.post("/upload", async (c: Context) => {
   const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
   const isImage: boolean = contentType.startsWith("image/");
   const isVideo: boolean = contentType.startsWith("video/");
-  const isMedia: boolean = isImage || isVideo;
+  const isAudio: boolean = contentType.startsWith("audio/");
+  const isMedia: boolean = isImage || isVideo || isAudio;
   const data = Utils.isValidImageType(contentType)
     ? await api.scramble(buffer, contentType, file.name)
     : buffer;
@@ -300,7 +301,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       c.header("Content-Type", json.contentType);
       const isImage: boolean = (json.contentType ?? "").startsWith("image/");
       const isVideo: boolean = (json.contentType ?? "").startsWith("video/");
-      const isMedia: boolean = isImage || isVideo;
+      const isAudio: boolean = (json.contentType ?? "").startsWith("audio/");
+      const isMedia: boolean = isImage || isVideo || isAudio;
       const behavior: string = isMedia ? "inline" : "attachment";
       const fileName = encodeURIComponent(
         json.originalFileName ?? json.contentName!
@@ -358,7 +360,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             c.header("Content-Type", contentType);
             const isImage: boolean = contentType.startsWith("image/");
             const isVideo: boolean = contentType.startsWith("video/");
-            const isMedia: boolean = isImage || isVideo;
+            const isAudio: boolean = contentType.startsWith("audio/");
+            const isMedia: boolean = isImage || isVideo || isAudio;
             const behavior: string = isMedia ? "inline" : "attachment";
             const fileName = encodeURIComponent(
               json.originalFileName ?? json.contentName!
