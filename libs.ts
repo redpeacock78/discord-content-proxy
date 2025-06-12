@@ -255,7 +255,6 @@ export const Imager = {
         } finally {
           ctx = null;
           canvas = null;
-          gc();
         }
       }
     }
@@ -292,7 +291,6 @@ export const Imager = {
           throw new Error(`Failed to encode JPEG: ${e}`);
         } finally {
           decodeImg = null;
-          gc();
         }
       } else {
         return outputCanvas.toBuffer();
@@ -303,7 +301,6 @@ export const Imager = {
       blocks = {};
       image = null;
       buffer = null;
-      gc();
     }
   },
   /**
@@ -391,7 +388,6 @@ export const Imager = {
           throw new Error(`Failed to encode JPEG: ${e}`);
         } finally {
           decodeImg = null;
-          gc();
         }
       } else {
         return outputCanvas.toBuffer();
@@ -401,7 +397,6 @@ export const Imager = {
       ctx = null;
       image = null;
       buffer = null;
-      gc();
     }
   },
 };
@@ -452,7 +447,6 @@ export const Data = {
     } finally {
       formData = null;
       data = null;
-      gc();
     }
   },
 };
@@ -494,7 +488,6 @@ export class Api {
       scranmbled = null;
       formData = null;
       data = null;
-      gc();
     }
   }
   /**
