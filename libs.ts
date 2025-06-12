@@ -255,7 +255,7 @@ export const Imager = {
     const sortedKeys = Object.keys(blocks).sort();
 
     // 新しい画像を生成
-    const outputCanvas = createCanvas(width, height);
+    let outputCanvas: EmulatedCanvas2D | null = createCanvas(width, height);
     const outputCtx = outputCanvas.getContext("2d");
 
     let offsetX = 0;
@@ -272,15 +272,22 @@ export const Imager = {
       }
     }
 
-    if (mimeType === IMG_TYPES.JPG) {
-      try {
-        const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
-        return await decodeImg.encodeJPEG();
-      } catch (e) {
-        throw new Error(`Failed to encode JPEG: ${e}`);
+    try {
+      if (mimeType === IMG_TYPES.JPG) {
+        let decodeImg: Image | null;
+        try {
+          decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
+          return await decodeImg.encodeJPEG();
+        } catch (e) {
+          throw new Error(`Failed to encode JPEG: ${e}`);
+        } finally {
+          decodeImg = null;
+        }
+      } else {
+        return outputCanvas.toBuffer();
       }
-    } else {
-      return outputCanvas.toBuffer();
+    } finally {
+      outputCanvas = null;
     }
   },
   /**
@@ -333,7 +340,7 @@ export const Imager = {
     keyArray.sort((a, b) => (a.md5 < b.md5 ? -1 : 1));
 
     // 新しいキャンバスを作成
-    const outputCanvas = createCanvas(width, height);
+    let outputCanvas: EmulatedCanvas2D | null = createCanvas(width, height);
     const ctx = outputCanvas.getContext("2d");
 
     for (let i = 1; i <= gridSizeX * gridSizeY; i++) {
@@ -358,15 +365,22 @@ export const Imager = {
       );
     }
 
-    if (mimeType === IMG_TYPES.JPG) {
-      try {
-        const decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
-        return await decodeImg.encodeJPEG();
-      } catch (e) {
-        throw new Error(`Failed to encode JPEG: ${e}`);
+    try {
+      if (mimeType === IMG_TYPES.JPG) {
+        let decodeImg: Image | null;
+        try {
+          decodeImg = (await decode(outputCanvas.toBuffer())) as Image;
+          return await decodeImg.encodeJPEG();
+        } catch (e) {
+          throw new Error(`Failed to encode JPEG: ${e}`);
+        } finally {
+          decodeImg = null;
+        }
+      } else {
+        return outputCanvas.toBuffer();
       }
-    } else {
-      return outputCanvas.toBuffer();
+    } finally {
+      outputCanvas = null;
     }
   },
 };
@@ -387,8 +401,8 @@ export const Data = {
     segmentIndex: number,
     webhook: string
   ) => {
+    let formData = new FormData();
     try {
-      const formData = new FormData();
       formData.append(
         "file",
         new Blob([data]),
@@ -414,6 +428,8 @@ export const Data = {
       });
     } catch (e) {
       throw e as Error;
+    } finally {
+      formData = null;
     }
   },
 };
@@ -434,18 +450,22 @@ export class Api {
    * @returns The scrambled image data.
    */
   async scramble(data: ArrayBuffer, contentType: string, contentName: string) {
-    const formData = new FormData();
-    formData.append(
-      "file",
-      new Blob([data], { type: contentType }),
-      contentName
-    );
-    const scranmbled = await this.app.request("/scramble", {
-      method: "POST",
-      body: formData as any,
-      headers: {},
-    });
-    return await scranmbled.arrayBuffer();
+    let formData = new FormData();
+    try {
+      formData.append(
+        "file",
+        new Blob([data], { type: contentType }),
+        contentName
+      );
+      const scranmbled = await this.app.request("/scramble", {
+        method: "POST",
+        body: formData as any,
+        headers: {},
+      });
+      return await scranmbled.arrayBuffer();
+    } finally {
+      formData = null;
+    }
   }
   /**
    * Generates a JSON object by calling the /generate endpoint.
