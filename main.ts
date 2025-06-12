@@ -2,6 +2,7 @@ import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
 import { fileTypeFromBuffer } from "npm:file-type";
 import { Context, Env, Hono } from "npm:hono";
+import { handle } from "npm:hono/vercel";
 import { zValidator } from "npm:@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Crypto, fJSON, Imager, Data, Api } from "./libs.ts";
@@ -474,4 +475,5 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   }
 });
 
-Deno.serve(app.fetch);
+// Deno.serve(app.fetch);
+export default handle(app);
