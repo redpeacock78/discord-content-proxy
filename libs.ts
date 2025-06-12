@@ -11,6 +11,8 @@ import {
   createCanvas,
   loadImage,
   EmulatedCanvas2D,
+  EmulatedCanvas2DContext,
+  Image as CanvasImage,
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 import { Utils, Base62 } from "./utils.ts";
@@ -199,11 +201,11 @@ export const Imager = {
    * @throws Error if the content type is unsupported.
    */
   scramble: async (
-    buffer: ArrayBuffer,
+    buffer: ArrayBuffer | null,
     mimeType: (typeof VALID_IMG_TYPES)[number],
     secretKey: string
   ): Promise<Uint8Array> => {
-    const image = await loadImage(new Uint8Array(buffer));
+    let image: CanvasImage | null = await loadImage(new Uint8Array(buffer!));
 
     // 画像の幅と高さを取得
     const width = image.width();
@@ -221,33 +223,39 @@ export const Imager = {
     const blockWidth = Math.floor(width / blockNumX);
     const blockHeight = Math.floor(height / blockNumY);
 
-    const blocks: { [key: string]: EmulatedCanvas2D } = {};
+    let blocks: { [key: string]: EmulatedCanvas2D } = {};
 
     // 画像をブロックに分割
     let loop = 0;
     for (let y = 0; y < blockNumY; y++) {
       for (let x = 0; x < blockNumX; x++) {
         loop++;
-        const canvas = createCanvas(blockWidth, blockHeight);
-        const ctx = canvas.getContext("2d");
-
-        ctx.drawImage(
-          image,
-          x * blockWidth,
-          y * blockHeight,
-          blockWidth,
-          blockHeight,
-          0,
-          0,
+        let canvas: EmulatedCanvas2D | null = createCanvas(
           blockWidth,
           blockHeight
         );
-
-        // キーを計算
-        const keyIndex = loop % secretKey.length || secretKey.length;
-        const keyChar = secretKey.charAt(keyIndex - 1);
-        const key = Crypto.genHash(keyChar + loop);
-        blocks[key] = canvas;
+        let ctx: EmulatedCanvas2DContext | null = canvas.getContext("2d");
+        try {
+          ctx.drawImage(
+            image,
+            x * blockWidth,
+            y * blockHeight,
+            blockWidth,
+            blockHeight,
+            0,
+            0,
+            blockWidth,
+            blockHeight
+          );
+          // キーを計算
+          const keyIndex = loop % secretKey.length || secretKey.length;
+          const keyChar = secretKey.charAt(keyIndex - 1);
+          const key = Crypto.genHash(keyChar + loop);
+          blocks[key] = canvas;
+        } finally {
+          ctx = null;
+          canvas = null;
+        }
       }
     }
 
@@ -256,7 +264,8 @@ export const Imager = {
 
     // 新しい画像を生成
     let outputCanvas: EmulatedCanvas2D | null = createCanvas(width, height);
-    const outputCtx = outputCanvas.getContext("2d");
+    let outputCtx: EmulatedCanvas2DContext | null =
+      outputCanvas.getContext("2d");
 
     let offsetX = 0;
     let offsetY = 0;
@@ -288,6 +297,10 @@ export const Imager = {
       }
     } finally {
       outputCanvas = null;
+      outputCtx = null;
+      blocks = {};
+      image = null;
+      buffer = null;
     }
   },
   /**
@@ -298,12 +311,12 @@ export const Imager = {
    * @returns {Promise<Uint8Array>} A Promise that resolves to the restored image, in the form of a Uint8Array.
    */
   restore: async (
-    buffer: ArrayBuffer,
+    buffer: ArrayBuffer | null,
     mimeType: (typeof VALID_IMG_TYPES)[number],
     secretKey: string
   ): Promise<Uint8Array> => {
     // 画像を読み込む
-    const image = await loadImage(new Uint8Array(buffer));
+    let image: CanvasImage | null = await loadImage(new Uint8Array(buffer!));
 
     // 画像の幅と高さを取得
     const width = image.width();
@@ -341,7 +354,7 @@ export const Imager = {
 
     // 新しいキャンバスを作成
     let outputCanvas: EmulatedCanvas2D | null = createCanvas(width, height);
-    const ctx = outputCanvas.getContext("2d");
+    let ctx: EmulatedCanvas2DContext | null = outputCanvas.getContext("2d");
 
     for (let i = 1; i <= gridSizeX * gridSizeY; i++) {
       const index = keyArray.findIndex((item) => item.index === i) + 1;
@@ -381,6 +394,9 @@ export const Imager = {
       }
     } finally {
       outputCanvas = null;
+      ctx = null;
+      image = null;
+      buffer = null;
     }
   },
 };
@@ -396,7 +412,7 @@ export const Data = {
    * @throws {Error} If there is an error while uploading the segment.
    */
   uploadSegment: async (
-    data: Uint8Array,
+    data: Uint8Array | null,
     json: z.infer<typeof JSON_SCHEMA>,
     segmentIndex: number,
     webhook: string
@@ -405,8 +421,8 @@ export const Data = {
     try {
       formData.append(
         "file",
-        new Blob([data]),
-        Base62.encode(Crypto.fnv1a(data, 64))
+        new Blob([data!]),
+        Base62.encode(Crypto.fnv1a(data!, 64))
       );
       const options: KyOptions = {
         body: formData,
@@ -430,6 +446,7 @@ export const Data = {
       throw e as Error;
     } finally {
       formData = null;
+      data = null;
     }
   },
 };
@@ -449,22 +466,28 @@ export class Api {
    * @param contentName The name of the image.
    * @returns The scrambled image data.
    */
-  async scramble(data: ArrayBuffer, contentType: string, contentName: string) {
+  async scramble(
+    data: ArrayBuffer | null,
+    contentType: string,
+    contentName: string
+  ) {
     let formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([data!], { type: contentType }),
+      contentName
+    );
+    let scranmbled = await this.app.request("/scramble", {
+      method: "POST",
+      body: formData as any,
+      headers: {},
+    });
     try {
-      formData.append(
-        "file",
-        new Blob([data], { type: contentType }),
-        contentName
-      );
-      const scranmbled = await this.app.request("/scramble", {
-        method: "POST",
-        body: formData as any,
-        headers: {},
-      });
       return await scranmbled.arrayBuffer();
     } finally {
+      scranmbled = null;
       formData = null;
+      data = null;
     }
   }
   /**
