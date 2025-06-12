@@ -21,38 +21,43 @@ const app = new Hono();
 const api = new Api(app);
 
 app.post("/scramble", async (c: Context) => {
-  const body = await c.req.parseBody();
-  const file = body["file"] as File;
-  if (typeof file !== "object")
-    return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
-  const contentType = file.type;
-  const isImage: boolean = contentType.startsWith("image/");
-  if (!isImage)
-    return c.json({ error: "Invalid file type" }, HTTP_STATUS.BAD_REQUEST);
-  if (!Utils.isValidImageType(contentType))
-    return c.json({ error: "Invalid image type" }, HTTP_STATUS.BAD_REQUEST);
-  return await Imager.scramble(
-    await file.arrayBuffer(),
-    contentType,
-    Keys.IMG_SECRET
-  )
-    .then((i: Uint8Array) => {
-      let data: ArrayBuffer | null = new ArrayBuffer(i.length);
-      try {
-        c.header("Content-Length", `${i.length}`);
-        c.header("Content-Type", contentType);
-        new Uint8Array(data).set(i);
-        return c.body(data);
-      } finally {
-        data = null;
-      }
-    })
-    .catch((_e: unknown) =>
-      c.json(
-        { error: "Failed to generate image" },
-        HTTP_STATUS.INTERNAL_SERVER_ERROR
-      )
-    );
+  let body = await c.req.parseBody();
+  let file = body["file"] as File;
+  try {
+    if (typeof file !== "object")
+      return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
+    const contentType = file.type;
+    const isImage: boolean = contentType.startsWith("image/");
+    if (!isImage)
+      return c.json({ error: "Invalid file type" }, HTTP_STATUS.BAD_REQUEST);
+    if (!Utils.isValidImageType(contentType))
+      return c.json({ error: "Invalid image type" }, HTTP_STATUS.BAD_REQUEST);
+    return await Imager.scramble(
+      await file.arrayBuffer(),
+      contentType,
+      Keys.IMG_SECRET
+    )
+      .then((i: Uint8Array) => {
+        let data: ArrayBuffer | null = new ArrayBuffer(i.length);
+        try {
+          c.header("Content-Length", `${i.length}`);
+          c.header("Content-Type", contentType);
+          new Uint8Array(data).set(i);
+          return c.body(data);
+        } finally {
+          data = null;
+        }
+      })
+      .catch((_e: unknown) =>
+        c.json(
+          { error: "Failed to generate image" },
+          HTTP_STATUS.INTERNAL_SERVER_ERROR
+        )
+      );
+  } finally {
+    body = null;
+    file = null;
+  }
 });
 
 app.post(
@@ -297,8 +302,12 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           const response = await ky.get(refreshedUrl);
           if (!response.ok)
             throw new Error(`Failed to fetch segment: ${segment.segmentIndex}`);
-          const arrayBuffer = await response.arrayBuffer();
-          buffers.push(new Uint8Array(arrayBuffer));
+          let arrayBuffer = await response.arrayBuffer();
+          try {
+            buffers.push(new Uint8Array(arrayBuffer));
+          } finally {
+            arrayBuffer = null;
+          }
         } catch (_e) {
           return c.json(
             { error: `Failed to fetch segment: ${segment.segmentIndex}` },
