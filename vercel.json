@@ -5,10 +5,7 @@
       "includeFiles": "api/*.ts"
     },
     "rewrites": [
-      {
-      "source": "/(.*)",
-      "destination": "/api/main"
-    }
-  ]
+      { "source": "/(.*)", "destination": "/api/main" }
+    ]
   }
 }
