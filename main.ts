@@ -57,6 +57,7 @@ app.post("/scramble", async (c: Context) => {
   } finally {
     body = null;
     file = null;
+    gc();
   }
 });
 
@@ -148,6 +149,7 @@ app.post("/upload", async (c: Context) => {
         formData = null;
         data = null;
         buffer = null;
+        gc();
       }
     } else {
       const json: z.infer<typeof JSON_SCHEMA> = {
@@ -225,6 +227,7 @@ app.post("/upload", async (c: Context) => {
     file = null;
     buffer = null;
     data = null;
+    gc();
   }
 });
 
@@ -364,6 +367,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       } finally {
         resultBuffer = null;
         buffers.length = 0;
+        gc();
       }
     } else {
       const channelId = Utils.idDecode(json.channelId!);
@@ -441,6 +445,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
                       result = new Response(restoreImg).body!;
                     } finally {
                       restoreImg = null;
+                      gc();
                     }
                   } catch (_e: unknown) {
                     throw new Error();
@@ -452,6 +457,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             return c.body(result);
           } finally {
             result = null;
+            gc();
           }
         })
         .catch((e: ErrorType) =>
