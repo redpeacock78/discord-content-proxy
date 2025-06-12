@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/main.ts": {
+      "runtime": "vercel-deno@3.1.0",
+      "includeFiles": "api/*.ts"
+    },
+    "rewrite": [{
+      "source": "/(.*)",
+      "destination": "/api/main"
+    }]
+  }
+}
