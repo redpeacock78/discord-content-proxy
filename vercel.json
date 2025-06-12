@@ -4,9 +4,11 @@
       "runtime": "vercel-deno@3.1.0",
       "includeFiles": "api/*.ts"
     },
-    "rewrite": [{
+    "rewrite": [
+      {
       "source": "/(.*)",
       "destination": "/api/main"
-    }]
+    }
+  ]
   }
 }
