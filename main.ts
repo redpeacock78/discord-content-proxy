@@ -112,7 +112,7 @@ app.post("/upload", async (c: Context) => {
   const contentSize = data!.byteLength;
   try {
     if (contentSize < MAX_UPLOAD_SIZE && !isMedia) {
-      const formData = new FormData();
+      let formData = new FormData();
       formData.append(
         "file",
         new Blob([data!], { type: contentType }),
@@ -143,6 +143,11 @@ app.post("/upload", async (c: Context) => {
           { error: "Failed to upload file" },
           HTTP_STATUS.BAD_REQUEST
         );
+      } finally {
+        body = null;
+        formData = null;
+        data = null;
+        buffer = null;
       }
     } else {
       const json: z.infer<typeof JSON_SCHEMA> = {
