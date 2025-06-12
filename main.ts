@@ -37,11 +37,15 @@ app.post("/scramble", async (c: Context) => {
     Keys.IMG_SECRET
   )
     .then((i: Uint8Array) => {
-      c.header("Content-Length", `${i.length}`);
-      c.header("Content-Type", contentType);
-      const data = new ArrayBuffer(i.length);
-      new Uint8Array(data).set(i);
-      return c.body(data);
+      let data: ArrayBuffer | null = new ArrayBuffer(i.length);
+      try {
+        c.header("Content-Length", `${i.length}`);
+        c.header("Content-Type", contentType);
+        new Uint8Array(data).set(i);
+        return c.body(data);
+      } finally {
+        data = null;
+      }
     })
     .catch((_e: unknown) =>
       c.json(
@@ -87,118 +91,130 @@ app.post("/upload", async (c: Context) => {
     Keys.DISCORD_WEBHOOK_URL_2,
     Keys.DISCORD_WEBHOOK_URL_3,
   ];
-  const body = await c.req.parseBody();
-  const file = body["file"] as File;
+  let body: any | null = await c.req.parseBody();
+  let file: File | null = body["file"] as File;
   if (typeof file !== "object")
     return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
-  const buffer = await file.arrayBuffer();
+  let buffer: ArrayBuffer | null = await file.arrayBuffer();
   const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
   const isImage: boolean = contentType.startsWith("image/");
   const isVideo: boolean = contentType.startsWith("video/");
   const isAudio: boolean = contentType.startsWith("audio/");
   const isMedia: boolean = isImage || isVideo || isAudio;
-  const data = Utils.isValidImageType(contentType)
+  let data: ArrayBuffer | null = Utils.isValidImageType(contentType)
     ? await api.scramble(buffer, contentType, file.name)
     : buffer;
-  const contentSize = data.byteLength;
-  if (contentSize < MAX_UPLOAD_SIZE && !isMedia) {
-    const formData = new FormData();
-    formData.append("file", new Blob([data], { type: contentType }), file.name);
-    const options: KyOptions = {
-      body: formData,
-      headers: {},
-    };
-    try {
-      const webhookUrl = webhooks[Math.floor(Math.random() * webhooks.length)];
-      const response = await ky.post(webhookUrl, options).json();
-      const url = new URL(
-        (response as { attachments: [{ url: string }] }).attachments[0].url
+  const contentSize = data!.byteLength;
+  try {
+    if (contentSize < MAX_UPLOAD_SIZE && !isMedia) {
+      const formData = new FormData();
+      formData.append(
+        "file",
+        new Blob([data!], { type: contentType }),
+        file.name
       );
-      const json = {
-        channelId: Base62.encode(BigInt(url.pathname.split("/")[2])),
-        messageId: Base62.encode(BigInt(url.pathname.split("/")[3])),
-        contentName: url.pathname.split("/")[4],
-        originalFileName: file.name,
+      const options: KyOptions = {
+        body: formData,
+        headers: {},
       };
-      const res = await api.generate(JSON_SCHEMA, json);
-      return c.json(res);
-    } catch (e) {
-      console.error(e);
-      return c.json(
-        { error: "Failed to upload file" },
-        HTTP_STATUS.BAD_REQUEST
-      );
-    }
-  } else {
-    const json: z.infer<typeof JSON_SCHEMA> = {
-      originalFileName: file.name,
-      contentType: contentType,
-      segments: [],
-    };
-    const dynamicSegmentSize =
-      contentSize < MAX_UPLOAD_SIZE
-        ? Math.floor(contentSize / 2)
-        : MAX_SEGMENT_SIZE;
-    const stream = file.stream();
-    const reader = stream.getReader();
-    let index = 0;
-    let uploadedSize = 0;
-    const segmentBuffer = new Uint8Array(dynamicSegmentSize);
-    while (uploadedSize < contentSize) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      let offset = 0;
-      while (offset < value!.byteLength) {
-        const chunkSize = Math.min(
-          dynamicSegmentSize - index,
-          value!.byteLength - offset
-        );
-        // Copy data into the segment buffer
-        segmentBuffer.set(value!.subarray(offset, offset + chunkSize), index);
-        index += chunkSize;
-        offset += chunkSize;
-        // If segment is full, upload it
-        if (index === dynamicSegmentSize) {
-          try {
-            await Data.uploadSegment(
-              segmentBuffer,
-              json,
-              json.segments!.length,
-              webhooks[Math.floor(Math.random() * webhooks.length)]
-            );
-          } catch (_e) {
-            return c.json(
-              { error: "Failed to upload segment" },
-              HTTP_STATUS.BAD_REQUEST
-            );
-          }
-          index = 0;
-        }
-      }
-      uploadedSize += value!.byteLength;
-    }
-    // Upload any remaining data
-    if (index > 0) {
       try {
-        await Data.uploadSegment(
-          segmentBuffer.subarray(0, index),
-          json,
-          json.segments!.length,
-          webhooks[Math.floor(Math.random() * webhooks.length)]
+        const webhookUrl =
+          webhooks[Math.floor(Math.random() * webhooks.length)];
+        const response = await ky.post(webhookUrl, options).json();
+        const url = new URL(
+          (response as { attachments: [{ url: string }] }).attachments[0].url
         );
-        segmentBuffer.fill(0);
-        await new Promise((resolve) => setTimeout(resolve, 1));
-        index = 0;
-      } catch (_e) {
+        const json = {
+          channelId: Base62.encode(BigInt(url.pathname.split("/")[2])),
+          messageId: Base62.encode(BigInt(url.pathname.split("/")[3])),
+          contentName: url.pathname.split("/")[4],
+          originalFileName: file.name,
+        };
+        const res = await api.generate(JSON_SCHEMA, json);
+        return c.json(res);
+      } catch (e) {
+        console.error(e);
         return c.json(
-          { error: "Failed to upload segment" },
+          { error: "Failed to upload file" },
           HTTP_STATUS.BAD_REQUEST
         );
       }
+    } else {
+      const json: z.infer<typeof JSON_SCHEMA> = {
+        originalFileName: file.name,
+        contentType: contentType,
+        segments: [],
+      };
+      const dynamicSegmentSize =
+        contentSize < MAX_UPLOAD_SIZE
+          ? Math.floor(contentSize / 2)
+          : MAX_SEGMENT_SIZE;
+      const stream = file.stream();
+      const reader = stream.getReader();
+      let index = 0;
+      let uploadedSize = 0;
+      const segmentBuffer = new Uint8Array(dynamicSegmentSize);
+      while (uploadedSize < contentSize) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        let offset = 0;
+        while (offset < value!.byteLength) {
+          const chunkSize = Math.min(
+            dynamicSegmentSize - index,
+            value!.byteLength - offset
+          );
+          // Copy data into the segment buffer
+          segmentBuffer.set(value!.subarray(offset, offset + chunkSize), index);
+          index += chunkSize;
+          offset += chunkSize;
+          // If segment is full, upload it
+          if (index === dynamicSegmentSize) {
+            try {
+              await Data.uploadSegment(
+                segmentBuffer,
+                json,
+                json.segments!.length,
+                webhooks[Math.floor(Math.random() * webhooks.length)]
+              );
+            } catch (_e) {
+              return c.json(
+                { error: "Failed to upload segment" },
+                HTTP_STATUS.BAD_REQUEST
+              );
+            }
+            index = 0;
+          }
+        }
+        uploadedSize += value!.byteLength;
+      }
+      // Upload any remaining data
+      if (index > 0) {
+        try {
+          await Data.uploadSegment(
+            segmentBuffer.subarray(0, index),
+            json,
+            json.segments!.length,
+            webhooks[Math.floor(Math.random() * webhooks.length)]
+          );
+          segmentBuffer.fill(0);
+          await new Promise((resolve) => setTimeout(resolve, 1));
+          index = 0;
+        } catch (_e) {
+          return c.json(
+            { error: "Failed to upload segment" },
+            HTTP_STATUS.BAD_REQUEST
+          );
+        }
+      }
+      json.segments!.sort((a, b) => a.segmentIndex - b.segmentIndex);
+      const res = await api.generate(JSON_SCHEMA, json);
+      return c.json(res);
     }
-    json.segments!.sort((a, b) => a.segmentIndex - b.segmentIndex);
-    const res = await api.generate(JSON_SCHEMA, json);
-    return c.json(res);
+  } finally {
+    body = null;
+    file = null;
+    buffer = null;
+    data = null;
   }
 });
 
@@ -291,43 +307,50 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         }
       }
       const totalLength = buffers.reduce((sum, buf) => sum + buf.length, 0);
-      const resultBuffer = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const buffer of buffers) {
-        resultBuffer.set(buffer, offset);
-        offset += buffer.length;
+      let resultBuffer: Uint8Array<ArrayBuffer> | null = new Uint8Array(
+        totalLength
+      );
+      try {
+        let offset = 0;
+        for (const buffer of buffers) {
+          resultBuffer.set(buffer, offset);
+          offset += buffer.length;
+        }
+        c.header("Content-Length", `${resultBuffer.length}`);
+        c.header("Content-Type", json.contentType);
+        const isImage: boolean = (json.contentType ?? "").startsWith("image/");
+        const isVideo: boolean = (json.contentType ?? "").startsWith("video/");
+        const isAudio: boolean = (json.contentType ?? "").startsWith("audio/");
+        const isMedia: boolean = isImage || isVideo || isAudio;
+        const behavior: string = isMedia ? "inline" : "attachment";
+        const fileName = encodeURIComponent(
+          json.originalFileName ?? json.contentName!
+        );
+        c.header(
+          "Cache-Control",
+          `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
+        );
+        c.header(
+          "Content-Disposition",
+          `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+        );
+        c.header("Cache-Status", "MISS");
+        // if (isImage) {
+        //   const init = {
+        //     headers: {
+        //       "Content-Length": `${resultBuffer.length}`,
+        //       "Content-Type": `${json.contentType}`,
+        //       "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+        //       "Cache-Status": "HIT",
+        //     },
+        //   };
+        //   cache.put(c.req.url, new Response(resultBuffer, init));
+        // }
+        return c.body(resultBuffer.buffer);
+      } finally {
+        resultBuffer = null;
+        buffers.length = 0;
       }
-      c.header("Content-Length", `${resultBuffer.length}`);
-      c.header("Content-Type", json.contentType);
-      const isImage: boolean = (json.contentType ?? "").startsWith("image/");
-      const isVideo: boolean = (json.contentType ?? "").startsWith("video/");
-      const isAudio: boolean = (json.contentType ?? "").startsWith("audio/");
-      const isMedia: boolean = isImage || isVideo || isAudio;
-      const behavior: string = isMedia ? "inline" : "attachment";
-      const fileName = encodeURIComponent(
-        json.originalFileName ?? json.contentName!
-      );
-      c.header(
-        "Cache-Control",
-        `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
-      );
-      c.header(
-        "Content-Disposition",
-        `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
-      );
-      c.header("Cache-Status", "MISS");
-      // if (isImage) {
-      //   const init = {
-      //     headers: {
-      //       "Content-Length": `${resultBuffer.length}`,
-      //       "Content-Type": `${json.contentType}`,
-      //       "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
-      //       "Cache-Status": "HIT",
-      //     },
-      //   };
-      //   cache.put(c.req.url, new Response(resultBuffer, init));
-      // }
-      return c.body(resultBuffer.buffer);
     } else {
       const channelId = Utils.idDecode(json.channelId!);
       const messageId = Utils.idDecode(json.messageId!);
@@ -348,65 +371,74 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         .then(async (resp: KyResponse): Promise<Response> => {
           if (!resp.body)
             return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
-          let result: ReadableStream<Uint8Array> = new ReadableStream({
+          let result: ReadableStream<Uint8Array> | null = new ReadableStream({
             start(controller) {
               controller.close();
             },
           });
-          const contentType = resp.headers.get("content-type");
-          const contentLength = resp.headers.get("content-length");
-          if (contentLength) c.header("Content-Length", contentLength);
-          if (contentType) {
-            c.header("Content-Type", contentType);
-            const isImage: boolean = contentType.startsWith("image/");
-            const isVideo: boolean = contentType.startsWith("video/");
-            const isAudio: boolean = contentType.startsWith("audio/");
-            const isMedia: boolean = isImage || isVideo || isAudio;
-            const behavior: string = isMedia ? "inline" : "attachment";
-            const fileName = encodeURIComponent(
-              json.originalFileName ?? json.contentName!
-            );
-            c.header(
-              "Cache-Control",
-              `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
-            );
-            c.header(
-              "Content-Disposition",
-              `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
-            );
-            if (!isImage) {
-              result = resp.body;
-            } else {
-              if (Utils.isValidImageType(contentType)) {
-                try {
-                  const restoreImg = await Imager.restore(
-                    await resp.arrayBuffer(),
-                    contentType,
-                    Keys.IMG_SECRET
-                  );
-                  // const init = {
-                  //   headers: {
-                  //     "Content-Length": `${restoreImg.length}`,
-                  //     "Content-Type": `${contentType}`,
-                  //     "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
-                  //     "Cache-Status": "HIT",
-                  //   },
-                  // };
-                  // cache.put(
-                  //   c.req.url,
-                  //   new Response(await resp.arrayBuffer(), init)
-                  // );
-                  c.header("Content-Length", `${restoreImg.length}`);
-                  c.header("Cache-Status", "MISS");
-                  result = new Response(restoreImg).body!;
-                } catch (_e: unknown) {
-                  throw new Error();
+          try {
+            const contentType = resp.headers.get("content-type");
+            const contentLength = resp.headers.get("content-length");
+            if (contentLength) c.header("Content-Length", contentLength);
+            if (contentType) {
+              c.header("Content-Type", contentType);
+              const isImage: boolean = contentType.startsWith("image/");
+              const isVideo: boolean = contentType.startsWith("video/");
+              const isAudio: boolean = contentType.startsWith("audio/");
+              const isMedia: boolean = isImage || isVideo || isAudio;
+              const behavior: string = isMedia ? "inline" : "attachment";
+              const fileName = encodeURIComponent(
+                json.originalFileName ?? json.contentName!
+              );
+              c.header(
+                "Cache-Control",
+                `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
+              );
+              c.header(
+                "Content-Disposition",
+                `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+              );
+              if (!isImage) {
+                result = resp.body;
+              } else {
+                if (Utils.isValidImageType(contentType)) {
+                  try {
+                    let restoreImg: Uint8Array<ArrayBufferLike> | null =
+                      await Imager.restore(
+                        await resp.arrayBuffer(),
+                        contentType,
+                        Keys.IMG_SECRET
+                      );
+                    try {
+                      // const init = {
+                      //   headers: {
+                      //     "Content-Length": `${restoreImg.length}`,
+                      //     "Content-Type": `${contentType}`,
+                      //     "Content-Disposition": `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+                      //     "Cache-Status": "HIT",
+                      //   },
+                      // };
+                      // cache.put(
+                      //   c.req.url,
+                      //   new Response(await resp.arrayBuffer(), init)
+                      // );
+                      c.header("Content-Length", `${restoreImg.length}`);
+                      c.header("Cache-Status", "MISS");
+                      result = new Response(restoreImg).body!;
+                    } finally {
+                      restoreImg = null;
+                    }
+                  } catch (_e: unknown) {
+                    throw new Error();
+                  }
                 }
               }
             }
+            c.header("Access-Control-Allow-Origin", "*");
+            return c.body(result);
+          } finally {
+            result = null;
           }
-          c.header("Access-Control-Allow-Origin", "*");
-          return c.body(result);
         })
         .catch((e: ErrorType) =>
           Guards.isKyError(e)
