@@ -5,7 +5,7 @@ import ky, { KyResponse } from "https://unpkg.com/ky";
 import { fileTypeFromBuffer } from "https://registry.npmjs.org/file-type";
 import { Context, Env, Hono } from "https://unpkg.com/hono";
 import { handle } from "https://unpkg.com/hono/dist/adapter/vercel/index.js";
-import { zValidator } from "https://esm.sh/@hono/zod-validator" with { "type": "json" };
+import { zValidator } from "https://esm.sh/@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Api, Crypto, Data, fJSON, Imager } from "./libs.ts";
 import { Base62, Base64Url, Guards, Utils } from "./utils.ts";
