@@ -1,11 +1,11 @@
 #!/usr/bin/env deno run --version v1.44.0
 
-import { z } from "https://esm.sh/zod";
-import ky, { KyResponse } from "https://esm.sh/ky";
-import { fileTypeFromBuffer } from "https://esm.sh/file-type";
-import { Context, Env, Hono } from "https://esm.sh/hono";
-import { handle } from "https://esm.sh/hono/vercel";
-import { zValidator } from "https://esm.sh/@hono/zod-validator";
+import { z } from "https://cdn.skypack.dev/zod";
+import ky, { KyResponse } from "https://cdn.skypack.dev/ky";
+import { fileTypeFromBuffer } from "https://cdn.skypack.dev/file-type";
+import { Context, Env, Hono } from "https://cdn.skypack.dev/hono";
+import { handle } from "https://cdn.skypack.dev/hono/vercel";
+import { zValidator } from "https://cdn.skypack.dev/@hono/zod-validator";
 import { Keys } from "./secrets.ts";
 import { Api, Crypto, Data, fJSON, Imager } from "./libs.ts";
 import { Base62, Base64Url, Guards, Utils } from "./utils.ts";

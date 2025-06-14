@@ -1,4 +1,4 @@
-// import * as bigintConv from "https://esm.sh/bigint-conversion";
+// import * as bigintConv from "https://cdn.skypack.dev/bigint-conversion";
 import { VALID_IMG_TYPES } from "./constants.ts";
 import { ErrorType, KyError } from "./types.ts";
 

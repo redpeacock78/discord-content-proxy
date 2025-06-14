@@ -1,4 +1,4 @@
-import { z } from "https://esm.sh/zod";
+import { z } from "https://cdn.skypack.dev/zod";
 import { ContentfulStatusCode } from "./types.ts";
 
 export const BASE_URL = new URL("https://cdn.discordapp.com");

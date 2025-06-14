@@ -1,12 +1,12 @@
 // deno-lint-ignore-file no-explicit-any prefer-const
-import ky from "https://esm.sh/ky";
-import { z } from "https://esm.sh/zod";
-// @ts-types="https://esm.sh/@types/crypto-js"
-import crypto from "https://esm.sh/crypto-js";
-import JSONCrush from "https://esm.sh/jsoncrush";
-import fnv1a from "https://esm.sh/@sindresorhus/fnv1a";
-import { Env, Hono, Schema } from "https://esm.sh/hono";
-import fastJson from "https://esm.sh/fast-json-stringify";
+import ky from "https://cdn.skypack.dev/ky";
+import { z } from "https://cdn.skypack.dev/zod";
+// @ts-types="https://cdn.skypack.dev/@types/crypto-js"
+import crypto from "https://cdn.skypack.dev/crypto-js";
+import JSONCrush from "https://cdn.skypack.dev/jsoncrush";
+import fnv1a from "https://cdn.skypack.dev/@sindresorhus/fnv1a";
+import { Env, Hono, Schema } from "https://cdn.skypack.dev/hono";
+import fastJson from "https://cdn.skypack.dev/fast-json-stringify";
 import {
   createCanvas,
   EmulatedCanvas2D,

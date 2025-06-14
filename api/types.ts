@@ -1,5 +1,5 @@
-import { z } from "https://esm.sh/zod";
-import { Options } from "https://esm.sh/ky";
+import { z } from "https://cdn.skypack.dev/zod";
+import { Options } from "https://cdn.skypack.dev/ky";
 import { JSON_SCHEMA } from "./constants.ts";
 
 export type InfoStatusCode = 100 | 101 | 102 | 103;
