@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --version v2.1.4
+#!/usr/bin/env deno run --experimental-strip-types --version v2.1.4
 
 import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
