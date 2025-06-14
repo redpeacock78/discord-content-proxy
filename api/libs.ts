@@ -1,12 +1,12 @@
 // deno-lint-ignore-file no-explicit-any prefer-const
-import ky from "npm:ky";
-import { z } from "npm:zod";
-// @ts-types="npm:@types/crypto-js"
-import crypto from "npm:crypto-js";
-import JSONCrush from "npm:jsoncrush";
-import fnv1a from "npm:@sindresorhus/fnv1a";
-import { Env, Hono, Schema } from "npm:hono";
-import fastJson from "npm:fast-json-stringify";
+import ky from "https://esm.sh/ky";
+import { z } from "https://esm.sh/zod";
+// @ts-types="https://esm.sh/@types/crypto-js"
+import crypto from "https://esm.sh/crypto-js";
+import JSONCrush from "https://esm.sh/jsoncrush";
+import fnv1a from "https://esm.sh/@sindresorhus/fnv1a";
+import { Env, Hono, Schema } from "https://esm.sh/hono";
+import fastJson from "https://esm.sh/fast-json-stringify";
 import {
   createCanvas,
   EmulatedCanvas2D,
