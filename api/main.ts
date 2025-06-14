@@ -2,7 +2,7 @@
 
 import { z } from "https://unpkg.com/zod";
 import ky, { KyResponse } from "https://unpkg.com/ky";
-import { fileTypeFromBuffer } from "https://www.skypack.dev/file-type";
+import { fileTypeFromBuffer } from "https://registry.npmjs.org/file-type";
 import { Context, Env, Hono } from "https://unpkg.com/hono";
 import { handle } from "https://unpkg.com/hono/vercel";
 import { zValidator } from "https://unpkg.com/@hono/zod-validator";
