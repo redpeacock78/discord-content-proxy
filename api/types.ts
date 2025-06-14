@@ -1,5 +1,5 @@
-import { z } from "https://esm.sh/zod";
-import { Options } from "https://esm.sh/ky";
+import { z } from "npm:zod";
+import { Options } from "npm:ky";
 import { JSON_SCHEMA } from "./constants.ts";
 
 export type InfoStatusCode = 100 | 101 | 102 | 103;

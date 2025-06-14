@@ -1,6 +1,6 @@
 // import * as bigintConv from "npm:bigint-conversion";
 import { VALID_IMG_TYPES } from "./constants.ts";
-import { KyError, ErrorType } from "./types.ts";
+import { ErrorType, KyError } from "./types.ts";
 
 // export class TextCompression {
 //   // BWT (Burrows-Wheeler Transform)
@@ -249,8 +249,8 @@ export const Base64Url = {
     new TextDecoder().decode(
       Uint8Array.from(
         atob(str.replace(/-/g, "+").replace(/_/g, "/")),
-        (c: string): number => c.charCodeAt(0)
-      )
+        (c: string): number => c.charCodeAt(0),
+      ),
     ),
 };
 
@@ -392,7 +392,7 @@ export const Utils = {
   getDivisors: (n: number, target: number = 10): number[] =>
     Array.from(
       { length: target },
-      (_: unknown, i: number): number => i + 1
+      (_: unknown, i: number): number => i + 1,
     ).filter((div: number): boolean => n % div === 0),
   /**
    * Checks if the given MIME type is a valid image type.
@@ -400,7 +400,7 @@ export const Utils = {
    * @returns True if the MIME type is valid and included in the list of valid image types, false otherwise.
    */
   isValidImageType: (
-    type: string
+    type: string,
   ): type is (typeof VALID_IMG_TYPES)[number] => {
     return VALID_IMG_TYPES.includes(type as (typeof VALID_IMG_TYPES)[number]);
   },
