@@ -1,3 +1,5 @@
+#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-sys
+
 import { z } from "https://esm.sh/zod";
 import ky, { KyResponse } from "https://esm.sh/ky";
 import { fileTypeFromBuffer } from "https://esm.sh/file-type";
