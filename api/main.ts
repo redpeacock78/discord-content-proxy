@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --version v2.3.0
+#!/usr/bin/env deno run --version v2.1.4
 
 import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
