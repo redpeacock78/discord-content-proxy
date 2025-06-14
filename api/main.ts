@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --unstable-node-globals
+#!/usr/bin/env deno run --unstable-node-globals --version v1.44
 
 import { z } from "npm:zod";
 import ky, { KyResponse } from "npm:ky";
