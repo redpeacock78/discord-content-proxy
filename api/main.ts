@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net --allow-env --allow-read --allow-sys --version v2.3.6
+#!/usr/bin/env deno run --version v2.3.6
 
 import { z } from "https://esm.sh/zod";
 import ky, { KyResponse } from "https://esm.sh/ky";
