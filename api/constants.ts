@@ -1,9 +1,9 @@
-import { z } from "npm:zod";
+import { z } from "https://esm.sh/zod";
 import { ContentfulStatusCode } from "./types.ts";
 
 export const BASE_URL = new URL("https://cdn.discordapp.com");
 export const API_URL = new URL(
-  "https://discord.com/api/v9/attachments/refresh-urls"
+  "https://discord.com/api/v9/attachments/refresh-urls",
 );
 export const DIVISOR_TARGET = 50;
 export const MAX_UPLOAD_SIZE = 10485760; // 10MB
@@ -37,7 +37,7 @@ export const JSON_SCHEMA = z.object({
         messageId: z.string(),
         contentName: z.string(),
         segmentIndex: z.number(),
-      })
+      }),
     )
     .optional(),
 });

@@ -1,5 +1,5 @@
 import { KEY_NAMES } from "./constants.ts";
-import UniEnv from "npm:@redpeacock78/unienv";
+import UniEnv from "https://esm.sh/@redpeacock78/unienv";
 
 const envs = KEY_NAMES.reduce(
   (acc, i) => {
@@ -14,7 +14,7 @@ const envs = KEY_NAMES.reduce(
   {
     values: {} as Record<(typeof KEY_NAMES)[number], string>,
     errors: [] as string[],
-  }
+  },
 );
 
 if (envs.errors.length > 0) throw new Error(`\n${envs.errors.join("\n")}`);

@@ -1,26 +1,26 @@
 // deno-lint-ignore-file no-explicit-any prefer-const
-import ky from "npm:ky";
-import { z } from "npm:zod";
-// @ts-types="npm:@types/crypto-js"
-import crypto from "npm:crypto-js";
-import JSONCrush from "npm:jsoncrush";
-import fnv1a from "npm:@sindresorhus/fnv1a";
-import { Env, Schema, Hono } from "npm:hono";
-import fastJson from "npm:fast-json-stringify";
+import ky from "https://esm.sh/ky";
+import { z } from "https://esm.sh/zod";
+// @ts-types="https://esm.sh/@types/crypto-js"
+import crypto from "https://esm.sh/crypto-js";
+import JSONCrush from "https://esm.sh/jsoncrush";
+import fnv1a from "https://esm.sh/@sindresorhus/fnv1a";
+import { Env, Hono, Schema } from "https://esm.sh/hono";
+import fastJson from "https://esm.sh/fast-json-stringify";
 import {
   createCanvas,
-  loadImage,
   EmulatedCanvas2D,
   EmulatedCanvas2DContext,
   Image as CanvasImage,
+  loadImage,
 } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
-import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
-import { Utils, Base62 } from "./utils.ts";
+import { decode, Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
+import { Base62, Utils } from "./utils.ts";
 import {
   DIVISOR_TARGET,
-  VALID_IMG_TYPES,
   IMG_TYPES,
   JSON_SCHEMA,
+  VALID_IMG_TYPES,
 } from "./constants.ts";
 import { KyOptions } from "./types.ts";
 
@@ -63,7 +63,7 @@ export const Crypto = {
    */
   fnv1a: (
     data: string | Uint8Array,
-    size?: 32 | 64 | 128 | 256 | 512 | 1024
+    size?: 32 | 64 | 128 | 256 | 512 | 1024,
   ): bigint => fnv1a(data, { size: size }),
 };
 
@@ -88,7 +88,7 @@ export const fJSON = {
    */
   stringify: <TDoc extends object = object>(
     schema: fastJson.Schema,
-    doc: TDoc
+    doc: TDoc,
   ): string => fastJson(schema)(doc),
   /**
    * Parses a given JSON string, trying to uncrush it if it fails as a normal JSON string.
@@ -119,37 +119,41 @@ export const fJSON = {
    * // => { type: "number", nullable: true }
    */
   deriveJsonSchema: (schema: z.ZodTypeAny): Record<string, unknown> => {
-    if (schema instanceof z.ZodOptional)
+    if (schema instanceof z.ZodOptional) {
       return {
         ...fJSON.deriveJsonSchema(schema._def.innerType),
         nullable: true,
       };
+    }
     if (schema instanceof z.ZodString) return { type: "string" };
     if (schema instanceof z.ZodNumber) return { type: "number" };
     if (schema instanceof z.ZodBoolean) return { type: "boolean" };
-    if (schema instanceof z.ZodObject)
+    if (schema instanceof z.ZodObject) {
       return {
         type: "object",
         properties: Object.fromEntries(
           Object.entries(schema.shape).map(
             ([key, value]: [string, unknown]): [
               string,
-              Record<string, unknown>
-            ] => [key, fJSON.deriveJsonSchema(value as z.ZodTypeAny)]
-          )
+              Record<string, unknown>,
+            ] => [key, fJSON.deriveJsonSchema(value as z.ZodTypeAny)],
+          ),
         ),
         required: Object.keys(schema.shape).filter(
           (key: string): boolean =>
-            !(schema.shape[key] instanceof z.ZodOptional)
+            !(schema.shape[key] instanceof z.ZodOptional),
         ),
       };
-    if (schema instanceof z.ZodArray)
+    }
+    if (schema instanceof z.ZodArray) {
       return { type: "array", items: fJSON.deriveJsonSchema(schema._def.type) };
-    if (schema instanceof z.ZodUnion)
+    }
+    if (schema instanceof z.ZodUnion) {
       return {
         type: "array",
         items: schema._def.options.map(fJSON.deriveJsonSchema),
       };
+    }
     if (schema instanceof z.ZodLiteral) return { const: schema._def.value };
     return { type: "unknown" };
   },
@@ -170,24 +174,23 @@ export const fJSON = {
    * // => { title: "JSON Schema", type: "object", properties: { name: { type: "string" }, age: { type: "number" } } }
    */
   genSchema: <T extends z.ZodRawShape>(
-    schema: z.ZodObject<T>
-  ): fastJson.Schema =>
-    ({
-      title: "JSON Schema",
-      type: "object",
-      properties: (
-        Object.keys(schema.shape) as Array<keyof typeof schema.shape>
-      ).reduce(
-        (
-          acc: Record<string, Partial<fastJson.Schema>>,
-          key: keyof typeof schema.shape
-        ): Record<string, Partial<fastJson.Schema>> => ({
-          ...acc,
-          [key]: fJSON.deriveJsonSchema(schema.shape[key]),
-        }),
-        {} as Record<string, Partial<fastJson.Schema>>
-      ),
-    } as const),
+    schema: z.ZodObject<T>,
+  ): fastJson.Schema => ({
+    title: "JSON Schema",
+    type: "object",
+    properties: (
+      Object.keys(schema.shape) as Array<keyof typeof schema.shape>
+    ).reduce(
+      (
+        acc: Record<string, Partial<fastJson.Schema>>,
+        key: keyof typeof schema.shape,
+      ): Record<string, Partial<fastJson.Schema>> => ({
+        ...acc,
+        [key]: fJSON.deriveJsonSchema(schema.shape[key]),
+      }),
+      {} as Record<string, Partial<fastJson.Schema>>,
+    ),
+  } as const),
 };
 
 export const Imager = {
@@ -203,7 +206,7 @@ export const Imager = {
   scramble: async (
     buffer: ArrayBuffer | null,
     mimeType: (typeof VALID_IMG_TYPES)[number],
-    secretKey: string
+    secretKey: string,
   ): Promise<Uint8Array> => {
     let image: CanvasImage | null = await loadImage(new Uint8Array(buffer!));
 
@@ -232,7 +235,7 @@ export const Imager = {
         loop++;
         let canvas: EmulatedCanvas2D | null = createCanvas(
           blockWidth,
-          blockHeight
+          blockHeight,
         );
         let ctx: EmulatedCanvas2DContext | null = canvas.getContext("2d");
         try {
@@ -245,7 +248,7 @@ export const Imager = {
             0,
             0,
             blockWidth,
-            blockHeight
+            blockHeight,
           );
           // キーを計算
           const keyIndex = loop % secretKey.length || secretKey.length;
@@ -264,8 +267,9 @@ export const Imager = {
 
     // 新しい画像を生成
     let outputCanvas: EmulatedCanvas2D | null = createCanvas(width, height);
-    let outputCtx: EmulatedCanvas2DContext | null =
-      outputCanvas.getContext("2d");
+    let outputCtx: EmulatedCanvas2DContext | null = outputCanvas.getContext(
+      "2d",
+    );
 
     let offsetX = 0;
     let offsetY = 0;
@@ -313,7 +317,7 @@ export const Imager = {
   restore: async (
     buffer: ArrayBuffer | null,
     mimeType: (typeof VALID_IMG_TYPES)[number],
-    secretKey: string
+    secretKey: string,
   ): Promise<Uint8Array> => {
     // 画像を読み込む
     let image: CanvasImage | null = await loadImage(new Uint8Array(buffer!));
@@ -374,7 +378,7 @@ export const Imager = {
         dx * blockWidth,
         dy * blockHeight,
         blockWidth,
-        blockHeight
+        blockHeight,
       );
     }
 
@@ -415,14 +419,14 @@ export const Data = {
     data: Uint8Array | null,
     json: z.infer<typeof JSON_SCHEMA>,
     segmentIndex: number,
-    webhook: string
+    webhook: string,
   ) => {
     let formData = new FormData();
     try {
       formData.append(
         "file",
         new Blob([data!]),
-        Base62.encode(Crypto.fnv1a(data!, 64))
+        Base62.encode(Crypto.fnv1a(data!, 64)),
       );
       const options: KyOptions = {
         body: formData,
@@ -430,7 +434,7 @@ export const Data = {
       };
       const response = await ky.post(webhook, options).json();
       const url = new URL(
-        (response as { attachments: [{ url: string }] }).attachments[0].url
+        (response as { attachments: [{ url: string }] }).attachments[0].url,
       );
       const pathname = url.pathname;
       const channelId = Base62.encode(BigInt(pathname.split("/")[2]));
@@ -469,13 +473,13 @@ export class Api {
   async scramble(
     data: ArrayBuffer | null,
     contentType: string,
-    contentName: string
+    contentName: string,
   ) {
     let formData = new FormData();
     formData.append(
       "file",
       new Blob([data!], { type: contentType }),
-      contentName
+      contentName,
     );
     let scranmbled = await this.app.request("/scramble", {
       method: "POST",
@@ -498,7 +502,7 @@ export class Api {
    */
   async generate<T extends z.ZodRawShape>(
     schema: z.ZodObject<T>,
-    doc: Record<string, unknown>
+    doc: Record<string, unknown>,
   ) {
     const res = await this.app.request("/generate", {
       method: "POST",

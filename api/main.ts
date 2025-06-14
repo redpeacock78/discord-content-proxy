@@ -1,22 +1,22 @@
-import { z } from "npm:zod";
-import ky, { KyResponse } from "npm:ky";
-import { fileTypeFromBuffer } from "npm:file-type";
-import { Context, Env, Hono } from "npm:hono";
-import { handle } from "npm:hono/vercel";
-import { zValidator } from "npm:@hono/zod-validator";
+import { z } from "https://esm.sh/zod";
+import ky, { KyResponse } from "https://esm.sh/ky";
+import { fileTypeFromBuffer } from "https://esm.sh/file-type";
+import { Context, Env, Hono } from "https://esm.sh/hono";
+import { handle } from "https://esm.sh/hono/vercel";
+import { zValidator } from "https://esm.sh/@hono/zod-validator";
 import { Keys } from "./secrets.ts";
-import { Crypto, fJSON, Imager, Data, Api } from "./libs.ts";
-import { Base64Url, Guards, Utils, Base62 } from "./utils.ts";
+import { Api, Crypto, Data, fJSON, Imager } from "./libs.ts";
+import { Base62, Base64Url, Guards, Utils } from "./utils.ts";
 import {
   API_URL,
   BASE_URL,
   CACHE_AGE,
-  JSON_SCHEMA,
   HTTP_STATUS,
-  MAX_UPLOAD_SIZE,
+  JSON_SCHEMA,
   MAX_SEGMENT_SIZE,
+  MAX_UPLOAD_SIZE,
 } from "./constants.ts";
-import { Schema, KyOptions, ErrorType } from "./types.ts";
+import { ErrorType, KyOptions, Schema } from "./types.ts";
 
 const app = new Hono();
 const api = new Api(app);
@@ -25,18 +25,21 @@ app.post("/scramble", async (c: Context) => {
   let body = await c.req.parseBody();
   let file = body["file"] as File;
   try {
-    if (typeof file !== "object")
+    if (typeof file !== "object") {
       return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
+    }
     const contentType = file.type;
     const isImage: boolean = contentType.startsWith("image/");
-    if (!isImage)
+    if (!isImage) {
       return c.json({ error: "Invalid file type" }, HTTP_STATUS.BAD_REQUEST);
-    if (!Utils.isValidImageType(contentType))
+    }
+    if (!Utils.isValidImageType(contentType)) {
       return c.json({ error: "Invalid image type" }, HTTP_STATUS.BAD_REQUEST);
+    }
     return await Imager.scramble(
       await file.arrayBuffer(),
       contentType,
-      Keys.IMG_SECRET
+      Keys.IMG_SECRET,
     )
       .then((i: Uint8Array) => {
         let data: ArrayBuffer | null = new ArrayBuffer(i.length);
@@ -52,7 +55,7 @@ app.post("/scramble", async (c: Context) => {
       .catch((_e: unknown) =>
         c.json(
           { error: "Failed to generate image" },
-          HTTP_STATUS.INTERNAL_SERVER_ERROR
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
         )
       );
   } finally {
@@ -65,30 +68,33 @@ app.post(
   "/generate",
   zValidator("json", JSON_SCHEMA, (value, c: Context<Env, string>) => {
     const data: z.infer<typeof JSON_SCHEMA> | null = value.data;
-    if (!data)
+    if (!data) {
       return c.json({ error: "JSON is missing" }, HTTP_STATUS.BAD_REQUEST);
-    if (!JSON_SCHEMA.safeParse(data).success)
+    }
+    if (!JSON_SCHEMA.safeParse(data).success) {
       return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
+    }
     if (data.expiredAt) {
-      if (isNaN(Number(data.expiredAt)))
+      if (isNaN(Number(data.expiredAt))) {
         return c.json(
           { error: "Invalid expiredAt format" },
-          HTTP_STATUS.BAD_REQUEST
+          HTTP_STATUS.BAD_REQUEST,
         );
+      }
     }
     return;
   }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
     const json = c.req.valid("json");
     const data = fJSON.crush(
-      fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json)
+      fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json),
     );
     const digit: string = Crypto.genDigit(data, Keys.DIGIT_KEY);
     const encrypted: string = Base64Url.encode(
-      Crypto.encrypt(data, Keys.CRYPTO_KEY)
+      Crypto.encrypt(data, Keys.CRYPTO_KEY),
     );
     return c.json({ digit, encrypted });
-  }
+  },
 );
 
 app.post("/upload", async (c: Context) => {
@@ -99,8 +105,9 @@ app.post("/upload", async (c: Context) => {
   ];
   let body: any | null = await c.req.parseBody();
   let file: File | null = body["file"] as File;
-  if (typeof file !== "object")
+  if (typeof file !== "object") {
     return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
+  }
   let buffer: ArrayBuffer | null = await file.arrayBuffer();
   const contentType = (await fileTypeFromBuffer(buffer))?.mime ?? file.type;
   const isImage: boolean = contentType.startsWith("image/");
@@ -117,7 +124,7 @@ app.post("/upload", async (c: Context) => {
       formData.append(
         "file",
         new Blob([data!], { type: contentType }),
-        file.name
+        file.name,
       );
       const options: KyOptions = {
         body: formData,
@@ -128,7 +135,7 @@ app.post("/upload", async (c: Context) => {
           webhooks[Math.floor(Math.random() * webhooks.length)];
         const response = await ky.post(webhookUrl, options).json();
         const url = new URL(
-          (response as { attachments: [{ url: string }] }).attachments[0].url
+          (response as { attachments: [{ url: string }] }).attachments[0].url,
         );
         const json = {
           channelId: Base62.encode(BigInt(url.pathname.split("/")[2])),
@@ -142,7 +149,7 @@ app.post("/upload", async (c: Context) => {
         console.error(e);
         return c.json(
           { error: "Failed to upload file" },
-          HTTP_STATUS.BAD_REQUEST
+          HTTP_STATUS.BAD_REQUEST,
         );
       } finally {
         body = null;
@@ -156,10 +163,9 @@ app.post("/upload", async (c: Context) => {
         contentType: contentType,
         segments: [],
       };
-      const dynamicSegmentSize =
-        contentSize < MAX_UPLOAD_SIZE
-          ? Math.floor(contentSize / 2)
-          : MAX_SEGMENT_SIZE;
+      const dynamicSegmentSize = contentSize < MAX_UPLOAD_SIZE
+        ? Math.floor(contentSize / 2)
+        : MAX_SEGMENT_SIZE;
       const stream = file.stream();
       const reader = stream.getReader();
       let index = 0;
@@ -172,7 +178,7 @@ app.post("/upload", async (c: Context) => {
         while (offset < value!.byteLength) {
           const chunkSize = Math.min(
             dynamicSegmentSize - index,
-            value!.byteLength - offset
+            value!.byteLength - offset,
           );
           // Copy data into the segment buffer
           segmentBuffer.set(value!.subarray(offset, offset + chunkSize), index);
@@ -185,12 +191,12 @@ app.post("/upload", async (c: Context) => {
                 segmentBuffer,
                 json,
                 json.segments!.length,
-                webhooks[Math.floor(Math.random() * webhooks.length)]
+                webhooks[Math.floor(Math.random() * webhooks.length)],
               );
             } catch (_e) {
               return c.json(
                 { error: "Failed to upload segment" },
-                HTTP_STATUS.BAD_REQUEST
+                HTTP_STATUS.BAD_REQUEST,
               );
             }
             index = 0;
@@ -205,7 +211,7 @@ app.post("/upload", async (c: Context) => {
             segmentBuffer.subarray(0, index),
             json,
             json.segments!.length,
-            webhooks[Math.floor(Math.random() * webhooks.length)]
+            webhooks[Math.floor(Math.random() * webhooks.length)],
           );
           segmentBuffer.fill(0);
           await new Promise((resolve) => setTimeout(resolve, 1));
@@ -213,7 +219,7 @@ app.post("/upload", async (c: Context) => {
         } catch (_e) {
           return c.json(
             { error: "Failed to upload segment" },
-            HTTP_STATUS.BAD_REQUEST
+            HTTP_STATUS.BAD_REQUEST,
           );
         }
       }
@@ -237,23 +243,27 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   try {
     const data: string = Crypto.decrypt(
       Base64Url.decode(encrypted),
-      Keys.CRYPTO_KEY
+      Keys.CRYPTO_KEY,
     );
-    if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit)
+    if (Crypto.genDigit(data, Keys.DIGIT_KEY) !== digit) {
       return c.json({ error: "Invalid digit" }, HTTP_STATUS.BAD_REQUEST);
+    }
     const json = fJSON.parse(data) as z.infer<typeof JSON_SCHEMA>;
-    if (!JSON_SCHEMA.safeParse(json).success)
+    if (!JSON_SCHEMA.safeParse(json).success) {
       return c.json({ error: "Invalid JSON" }, HTTP_STATUS.BAD_REQUEST);
+    }
     if (json.expiredAt) {
-      if (isNaN(Number(json.expiredAt)))
+      if (isNaN(Number(json.expiredAt))) {
         return c.json(
           { error: "Invalid expiredAt format" },
-          HTTP_STATUS.BAD_REQUEST
+          HTTP_STATUS.BAD_REQUEST,
         );
+      }
       const currentTime = Date.now();
       const expiredAt = new Date(json.expiredAt).getTime();
-      if (currentTime > expiredAt)
+      if (currentTime > expiredAt) {
         return c.json({ error: "Token expired" }, HTTP_STATUS.BAD_REQUEST);
+      }
     }
     // const cache = await caches.open("img-cache");
     // const cachedResponse = await cache.match(c.req.url);
@@ -293,7 +303,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       for (const segment of json.segments) {
         const channelId = Utils.idDecode(segment.channelId);
         const messageId = Utils.idDecode(segment.messageId);
-        contentUrl.pathname = `/attachments/${channelId}/${messageId}/${segment.contentName}`;
+        contentUrl.pathname =
+          `/attachments/${channelId}/${messageId}/${segment.contentName}`;
         const postData = {
           attachment_urls: [contentUrl],
         };
@@ -306,8 +317,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
             await ky.post(refreshApi, option).json();
           const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
           const response = await ky.get(refreshedUrl);
-          if (!response.ok)
+          if (!response.ok) {
             throw new Error(`Failed to fetch segment: ${segment.segmentIndex}`);
+          }
           let arrayBuffer = await response.arrayBuffer();
           try {
             buffers.push(new Uint8Array(arrayBuffer));
@@ -317,13 +329,13 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         } catch (_e) {
           return c.json(
             { error: `Failed to fetch segment: ${segment.segmentIndex}` },
-            HTTP_STATUS.BAD_REQUEST
+            HTTP_STATUS.BAD_REQUEST,
           );
         }
       }
       const totalLength = buffers.reduce((sum, buf) => sum + buf.length, 0);
       let resultBuffer: Uint8Array<ArrayBuffer> | null = new Uint8Array(
-        totalLength
+        totalLength,
       );
       try {
         let offset = 0;
@@ -339,15 +351,15 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         const isMedia: boolean = isImage || isVideo || isAudio;
         const behavior: string = isMedia ? "inline" : "attachment";
         const fileName = encodeURIComponent(
-          json.originalFileName ?? json.contentName!
+          json.originalFileName ?? json.contentName!,
         );
         c.header(
           "Cache-Control",
-          `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
+          `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`,
         );
         c.header(
           "Content-Disposition",
-          `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+          `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
         );
         c.header("Cache-Status", "MISS");
         // if (isImage) {
@@ -369,7 +381,8 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     } else {
       const channelId = Utils.idDecode(json.channelId!);
       const messageId = Utils.idDecode(json.messageId!);
-      contentUrl.pathname = `/attachments/${channelId}/${messageId}/${json.contentName}`;
+      contentUrl.pathname =
+        `/attachments/${channelId}/${messageId}/${json.contentName}`;
       const postData = {
         attachment_urls: [contentUrl],
       };
@@ -384,8 +397,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       return await ky
         .get(refreshedUrl)
         .then(async (resp: KyResponse): Promise<Response> => {
-          if (!resp.body)
+          if (!resp.body) {
             return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
+          }
           let result: ReadableStream<Uint8Array> | null = new ReadableStream({
             start(controller) {
               controller.close();
@@ -403,15 +417,15 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
               const isMedia: boolean = isImage || isVideo || isAudio;
               const behavior: string = isMedia ? "inline" : "attachment";
               const fileName = encodeURIComponent(
-                json.originalFileName ?? json.contentName!
+                json.originalFileName ?? json.contentName!,
               );
               c.header(
                 "Cache-Control",
-                `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`
+                `public, s-maxage=${CACHE_AGE}, max-age=${CACHE_AGE}, must-revalidate`,
               );
               c.header(
                 "Content-Disposition",
-                `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`
+                `${behavior}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
               );
               if (!isImage) {
                 result = resp.body;
@@ -422,7 +436,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
                       await Imager.restore(
                         await resp.arrayBuffer(),
                         contentType,
-                        Keys.IMG_SECRET
+                        Keys.IMG_SECRET,
                       );
                     try {
                       // const init = {
@@ -459,9 +473,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           Guards.isKyError(e)
             ? c.json({ error: e.response.statusText }, e.response.status)
             : c.json(
-                { error: "Internal Server Error" },
-                HTTP_STATUS.INTERNAL_SERVER_ERROR
-              )
+              { error: "Internal Server Error" },
+              HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            )
         );
     }
   } catch (e) {
@@ -469,9 +483,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     return Guards.isKyError(error)
       ? c.json({ error: error.response.statusText }, error.response.status)
       : c.json(
-          { error: "Internal Server Error" },
-          HTTP_STATUS.INTERNAL_SERVER_ERROR
-        );
+        { error: "Internal Server Error" },
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      );
   }
 });
 
