@@ -1,5 +1,5 @@
 import { KEY_NAMES } from "./constants.ts";
-import UniEnv from "https://cdn.skypack.dev/@redpeacock78/unienv";
+import UniEnv from "https://unpkg.com/@redpeacock78/unienv";
 
 const envs = KEY_NAMES.reduce(
   (acc, i) => {
