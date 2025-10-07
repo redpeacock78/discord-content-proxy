@@ -89,7 +89,13 @@ export const fJSON = {
   stringify: <TDoc extends object = object>(
     schema: fastJson.Schema,
     doc: TDoc,
-  ): string => fastJson(schema)(doc),
+  ): string => {
+    try {
+      return fastJson(schema)(doc);
+    } catch {
+      return JSON.stringify(doc);
+    }
+  },
   /**
    * Parses a given JSON string, trying to uncrush it if it fails as a normal JSON string.
    * @param {string} input The JSON string to be parsed.
