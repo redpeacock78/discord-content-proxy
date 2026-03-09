@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any prefer-const
 import ky from "npm:ky";
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.1";
 // @ts-types="npm:@types/crypto-js"
 import crypto from "npm:crypto-js";
 import JSONCrush from "npm:jsoncrush";
@@ -22,7 +22,7 @@ import {
   JSON_SCHEMA,
   VALID_IMG_TYPES,
 } from "./constants.ts";
-import { KyOptions } from "./types.ts";
+// import { KyOptions } from "./types.ts";
 
 export const Crypto = {
   /**
@@ -92,7 +92,7 @@ export const fJSON = {
   ): string => {
     try {
       return fastJson(schema)(doc);
-    } catch {
+    } catch (e) {
       return JSON.stringify(doc);
     }
   },
@@ -134,7 +134,7 @@ export const fJSON = {
     if (schema instanceof z.ZodString) return { type: "string" };
     if (schema instanceof z.ZodNumber) return { type: "number" };
     if (schema instanceof z.ZodBoolean) return { type: "boolean" };
-    if (schema instanceof z.ZodObject) {
+    if (schema instanceof z.ZodObject)
       return {
         type: "object",
         properties: Object.fromEntries(
@@ -150,16 +150,16 @@ export const fJSON = {
             !(schema.shape[key] instanceof z.ZodOptional),
         ),
       };
-    }
-    if (schema instanceof z.ZodArray) {
-      return { type: "array", items: fJSON.deriveJsonSchema(schema._def.type) };
-    }
-    if (schema instanceof z.ZodUnion) {
+    if (schema instanceof z.ZodArray)
+      return {
+        type: "array",
+        items: fJSON.deriveJsonSchema(schema._def.type),
+      };
+    if (schema instanceof z.ZodUnion)
       return {
         type: "array",
         items: schema._def.options.map(fJSON.deriveJsonSchema),
       };
-    }
     if (schema instanceof z.ZodLiteral) return { const: schema._def.value };
     return { type: "unknown" };
   },
@@ -181,22 +181,23 @@ export const fJSON = {
    */
   genSchema: <T extends z.ZodRawShape>(
     schema: z.ZodObject<T>,
-  ): fastJson.Schema => ({
-    title: "JSON Schema",
-    type: "object",
-    properties: (
-      Object.keys(schema.shape) as Array<keyof typeof schema.shape>
-    ).reduce(
-      (
-        acc: Record<string, Partial<fastJson.Schema>>,
-        key: keyof typeof schema.shape,
-      ): Record<string, Partial<fastJson.Schema>> => ({
-        ...acc,
-        [key]: fJSON.deriveJsonSchema(schema.shape[key]),
-      }),
-      {} as Record<string, Partial<fastJson.Schema>>,
-    ),
-  } as const),
+  ): fastJson.Schema =>
+    ({
+      title: "JSON Schema",
+      type: "object",
+      properties: (
+        Object.keys(schema.shape) as Array<keyof typeof schema.shape>
+      ).reduce(
+        (
+          acc: Record<string, Partial<fastJson.Schema>>,
+          key: keyof typeof schema.shape,
+        ): Record<string, Partial<fastJson.Schema>> => ({
+          ...acc,
+          [key]: fJSON.deriveJsonSchema(schema.shape[key]),
+        }),
+        {} as Record<string, Partial<fastJson.Schema>>,
+      ),
+    }) as const,
 };
 
 export const Imager = {
@@ -274,9 +275,8 @@ export const Imager = {
 
     // 新しい画像を生成
     let outputCanvas: EmulatedCanvas2D | null = createCanvas(width, height);
-    let outputCtx: EmulatedCanvas2DContext | null = outputCanvas.getContext(
-      "2d",
-    );
+    let outputCtx: EmulatedCanvas2DContext | null =
+      outputCanvas.getContext("2d");
 
     let offsetX = 0;
     let offsetY = 0;
@@ -439,8 +439,13 @@ export const Data = {
         new Blob([data!]),
         Base62.encode(Crypto.fnv1a(data!, 64)),
       );
-      const options: KyOptions = {
+      const options = {
         body: formData,
+        timeout: 50000,
+        retry: {
+          limit: 10,
+          retryOnTimeout: true,
+        },
         headers: {},
       };
       const response = await ky.post(webhook, options).json();
@@ -493,7 +498,7 @@ export class Api {
       new Blob([data!], { type: contentType }),
       contentName,
     );
-    let scranmbled = await this.app.request("/scramble", {
+    let scranmbled: Response | null = await this.app.request("/scramble", {
       method: "POST",
       body: formData as any,
       headers: {},
