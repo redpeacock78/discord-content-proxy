@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.1";
 import ky, { KyResponse } from "npm:ky";
 import { fileTypeFromBuffer } from "npm:file-type";
 import { Context, Env, Hono } from "npm:hono";
@@ -21,7 +21,9 @@ const app = new Hono();
 const api = new Api(app);
 
 app.post("/scramble", async (c: Context) => {
-  let body = await c.req.parseBody();
+  let body: {
+    [x: string]: string | File;
+  } | null = await c.req.parseBody();
   let file: File | null = body["file"] as File;
   try {
     if (typeof file !== "object") {
@@ -55,7 +57,7 @@ app.post("/scramble", async (c: Context) => {
         c.json(
           { error: "Failed to generate image" },
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        )
+        ),
       );
   } finally {
     body = null;
@@ -85,7 +87,7 @@ app.post(
     return;
   }),
   (c: Context<Env, string, Schema<typeof JSON_SCHEMA>>) => {
-    const json = c.req.valid("json");
+    const json = c.req.valid("json") as object;
     const data = fJSON.crush(
       fJSON.stringify(fJSON.genSchema(JSON_SCHEMA), json),
     );
@@ -102,8 +104,16 @@ app.post("/upload", async (c: Context) => {
     Keys.DISCORD_WEBHOOK_URL_1,
     Keys.DISCORD_WEBHOOK_URL_2,
     Keys.DISCORD_WEBHOOK_URL_3,
+    Keys.DISCORD_WEBHOOK_URL_4,
+    Keys.DISCORD_WEBHOOK_URL_5,
+    Keys.DISCORD_WEBHOOK_URL_6,
+    Keys.DISCORD_WEBHOOK_URL_7,
+    Keys.DISCORD_WEBHOOK_URL_8,
+    Keys.DISCORD_WEBHOOK_URL_9,
   ];
-  let body: any | null = await c.req.parseBody();
+  let body: {
+    [x: string]: string | File;
+  } | null = await c.req.parseBody();
   let file: File | null = body["file"] as File;
   if (typeof file !== "object") {
     return c.json({ error: "Invalid file" }, HTTP_STATUS.BAD_REQUEST);
@@ -164,9 +174,10 @@ app.post("/upload", async (c: Context) => {
         contentType: contentType,
         segments: [],
       };
-      const dynamicSegmentSize = contentSize < MAX_UPLOAD_SIZE
-        ? Math.floor(contentSize / 2)
-        : MAX_SEGMENT_SIZE;
+      const dynamicSegmentSize =
+        contentSize < MAX_UPLOAD_SIZE
+          ? Math.floor(contentSize / 2)
+          : MAX_SEGMENT_SIZE;
       const stream = file.stream();
       const reader = stream.getReader();
       let index = 0;
@@ -305,8 +316,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       for (const segment of json.segments) {
         const channelId = Utils.idDecode(segment.channelId);
         const messageId = Utils.idDecode(segment.messageId);
-        contentUrl.pathname =
-          `/attachments/${channelId}/${messageId}/${segment.contentName}`;
+        contentUrl.pathname = `/attachments/${channelId}/${messageId}/${segment.contentName}`;
         const postData = {
           attachment_urls: [contentUrl],
         };
@@ -322,7 +332,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           if (!response.ok) {
             throw new Error(`Failed to fetch segment: ${segment.segmentIndex}`);
           }
-          let arrayBuffer = await response.arrayBuffer();
+          let arrayBuffer: ArrayBuffer | null = await response.arrayBuffer();
           try {
             buffers.push(new Uint8Array(arrayBuffer));
           } finally {
@@ -384,8 +394,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     } else {
       const channelId = Utils.idDecode(json.channelId!);
       const messageId = Utils.idDecode(json.messageId!);
-      contentUrl.pathname =
-        `/attachments/${channelId}/${messageId}/${json.contentName}`;
+      contentUrl.pathname = `/attachments/${channelId}/${messageId}/${json.contentName}`;
       const postData = {
         attachment_urls: [contentUrl],
       };
@@ -478,9 +487,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           Guards.isKyError(e)
             ? c.json({ error: e.response.statusText }, e.response.status)
             : c.json(
-              { error: "Internal Server Error" },
-              HTTP_STATUS.INTERNAL_SERVER_ERROR,
-            )
+                { error: "Internal Server Error" },
+                HTTP_STATUS.INTERNAL_SERVER_ERROR,
+              ),
         );
     }
   } catch (e) {
@@ -488,9 +497,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
     return Guards.isKyError(error)
       ? c.json({ error: error.response.statusText }, error.response.status)
       : c.json(
-        { error: "Internal Server Error" },
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      );
+          { error: "Internal Server Error" },
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        );
   }
 });
 
