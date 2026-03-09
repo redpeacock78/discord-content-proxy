@@ -412,7 +412,15 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       const headersData = {
         Authorization: Keys.DISCORD_TOKEN,
       };
-      const refreshOption = { json: postData, headers: headersData };
+      const refreshOption = {
+        json: postData,
+        headers: headersData,
+        timeout: TIMEOUT,
+        retry: {
+          limit: RETRY_LIMIT,
+          retryOnTimeout: RETRY_ON_TIMEOUT,
+        },
+      };
       const refreshData: { refreshed_urls: [{ refreshed: string }] } = await ky
         .post(refreshApi, refreshOption)
         .json();
