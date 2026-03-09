@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.1";
 import { ContentfulStatusCode } from "./types.ts";
 
 export const BASE_URL = new URL("https://cdn.discordapp.com");
@@ -17,6 +17,12 @@ export const KEY_NAMES = [
   "DISCORD_WEBHOOK_URL_1",
   "DISCORD_WEBHOOK_URL_2",
   "DISCORD_WEBHOOK_URL_3",
+  "DISCORD_WEBHOOK_URL_4",
+  "DISCORD_WEBHOOK_URL_5",
+  "DISCORD_WEBHOOK_URL_6",
+  "DISCORD_WEBHOOK_URL_7",
+  "DISCORD_WEBHOOK_URL_8",
+  "DISCORD_WEBHOOK_URL_9",
 ] as const;
 export const IMG_TYPES = {
   JPG: "image/jpeg",
