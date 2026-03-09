@@ -131,8 +131,9 @@ app.post("/upload", async (c: Context) => {
     ? await api.scramble(buffer, contentType, file.name)
     : buffer;
   const contentSize = data!.byteLength;
+  const isOverSize = MAX_UPLOAD_SIZE <= contentSize;
   try {
-    if (contentSize < MAX_UPLOAD_SIZE && !isMedia) {
+    if (!isOverSize && !isMedia) {
       let formData: FormData | null = new FormData();
       formData.append(
         "file",
