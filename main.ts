@@ -206,6 +206,7 @@ app.post("/upload", async (c: Context) => {
                 webhooks[Math.floor(Math.random() * webhooks.length)],
               );
             } catch (_e) {
+              console.error(_e);
               return c.json(
                 { error: "Failed to upload segment" },
                 HTTP_STATUS.BAD_REQUEST,
@@ -229,6 +230,7 @@ app.post("/upload", async (c: Context) => {
           await new Promise((resolve) => setTimeout(resolve, 1));
           index = 0;
         } catch (_e) {
+          console.error(_e);
           return c.json(
             { error: "Failed to upload segment" },
             HTTP_STATUS.BAD_REQUEST,
