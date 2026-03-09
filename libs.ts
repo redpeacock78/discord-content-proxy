@@ -21,6 +21,9 @@ import {
   IMG_TYPES,
   JSON_SCHEMA,
   VALID_IMG_TYPES,
+  TIMEOUT,
+  RETRY_LIMIT,
+  RETRY_ON_TIMEOUT,
 } from "./constants.ts";
 // import { KyOptions } from "./types.ts";
 
@@ -441,10 +444,10 @@ export const Data = {
       );
       const options = {
         body: formData,
-        timeout: 50000,
+        timeout: TIMEOUT,
         retry: {
-          limit: 10,
-          retryOnTimeout: true,
+          limit: RETRY_LIMIT,
+          retryOnTimeout: RETRY_ON_TIMEOUT,
         },
         headers: {},
       };
