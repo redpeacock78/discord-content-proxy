@@ -9,8 +9,8 @@ export const DIVISOR_TARGET = 50;
 export const MAX_UPLOAD_SIZE = 10485760; // 10MB
 export const MAX_SEGMENT_SIZE = 9437184; // 9MB
 export const CACHE_AGE = 315360000; // 10 years
-export const TIMEOUT = 600000; // 10 minutes
-export const RETRY_LIMIT = 1000;
+export const TIMEOUT = 60000; // 60 seconds
+export const RETRY_LIMIT = 10;
 export const RETRY_ON_TIMEOUT = true;
 export const KEY_NAMES = [
   "DIGIT_KEY",
