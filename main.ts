@@ -255,6 +255,14 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const contentUrl: URL = BASE_URL;
   const digit: string = c.req.param("digit");
   const encrypted: string = c.req.param("encrypted");
+  const options = {
+    timeout: 50000,
+    retry: {
+      limit: 10,
+      retryOnTimeout: true,
+    },
+    headers: {},
+  };
   try {
     const data: string = Crypto.decrypt(
       Base64Url.decode(encrypted),
@@ -330,7 +338,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
           const refreshData: { refreshed_urls: [{ refreshed: string }] } =
             await ky.post(refreshApi, option).json();
           const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
-          const response = await ky.get(refreshedUrl);
+          const response = await ky.get(refreshedUrl, options);
           if (!response.ok) {
             throw new Error(`Failed to fetch segment: ${segment.segmentIndex}`);
           }
@@ -409,7 +417,7 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
         .json();
       const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
       return await ky
-        .get(refreshedUrl)
+        .get(refreshedUrl, options)
         .then(async (resp: KyResponse): Promise<Response> => {
           if (!resp.body) {
             return c.json({ error: "No body" }, HTTP_STATUS.BAD_REQUEST);
