@@ -14,6 +14,9 @@ import {
   JSON_SCHEMA,
   MAX_SEGMENT_SIZE,
   MAX_UPLOAD_SIZE,
+  RETRY_LIMIT,
+  RETRY_ON_TIMEOUT,
+  TIMEOUT,
 } from "./constants.ts";
 import { ErrorType, KyOptions, Schema } from "./types.ts";
 
@@ -206,7 +209,6 @@ app.post("/upload", async (c: Context) => {
                 webhooks[Math.floor(Math.random() * webhooks.length)],
               );
             } catch (_e) {
-              console.error(_e);
               return c.json(
                 { error: "Failed to upload segment" },
                 HTTP_STATUS.BAD_REQUEST,
@@ -230,7 +232,6 @@ app.post("/upload", async (c: Context) => {
           await new Promise((resolve) => setTimeout(resolve, 1));
           index = 0;
         } catch (_e) {
-          console.error(_e);
           return c.json(
             { error: "Failed to upload segment" },
             HTTP_STATUS.BAD_REQUEST,
@@ -256,10 +257,10 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
   const digit: string = c.req.param("digit");
   const encrypted: string = c.req.param("encrypted");
   const options = {
-    timeout: 50000,
+    timeout: TIMEOUT,
     retry: {
-      limit: 10,
-      retryOnTimeout: true,
+      limit: RETRY_LIMIT,
+      retryOnTimeout: RETRY_ON_TIMEOUT,
     },
     headers: {},
   };
@@ -411,9 +412,9 @@ app.get("/:digit/:encrypted", async (c: Context): Promise<Response> => {
       const headersData = {
         Authorization: Keys.DISCORD_TOKEN,
       };
-      const option = { json: postData, headers: headersData };
+      const refreshOption = { json: postData, headers: headersData };
       const refreshData: { refreshed_urls: [{ refreshed: string }] } = await ky
-        .post(refreshApi, option)
+        .post(refreshApi, refreshOption)
         .json();
       const refreshedUrl = refreshData.refreshed_urls[0].refreshed;
       return await ky
